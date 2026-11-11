@@ -1,0 +1,11 @@
+{
+  "assessment": "internal-use-confirmed-by-user",
+  "executable": "img2tile.exe",
+  "bytes": 218112,
+  "sha256": "de6efbc9a7ffa5f18c19f9f08ebbbd38dacb001a8678b375668c685391217b4e",
+  "helpExitCode": -1,
+  "conversionTested": true,
+  "provenance": "developed-by-another-team-member",
+  "openSourceStatus": "not-asserted",
+  "testScope": "synthetic two-page RGB TIFF to PNG/JPG; scale 800x600; zero-based page selection; invalid-page rejection"
+}

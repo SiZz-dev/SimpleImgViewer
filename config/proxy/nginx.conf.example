@@ -1,0 +1,75 @@
+# NGINX OSS standalone example. Replace domain, certificate and private runtime paths.
+# Native syntax/runtime validation is required before deployment. No absolute body deadline here.
+worker_processes auto;
+pid /var/run/imagegate-nginx.pid;
+error_log /var/log/nginx/imagegate-error.log warn;
+events { worker_connections 1024; }
+http {
+    log_format imagegate_min '$status $request_method $request_time $upstream_status';
+    access_log /var/log/nginx/imagegate-access.log imagegate_min;
+    client_body_temp_path /var/lib/nginx/imagegate-body 1 2;
+    # Empty keys exclude ordinary viewing from the upload request counters.
+    map $http_content_type $imagegate_upload_ip {
+        default "";
+        ~*^multipart/ $binary_remote_addr;
+    }
+    map $imagegate_upload_ip $imagegate_upload_total { "" ""; default imagegate_upload; }
+    limit_conn_zone $imagegate_upload_ip zone=imagegate_upload_ip:1m;
+    limit_conn_zone $imagegate_upload_total zone=imagegate_upload_total:1m;
+    server {
+        listen 443 ssl;
+        server_name imagegate.example.invalid;
+        ssl_certificate /etc/imagegate/tls/fullchain.pem;
+        ssl_certificate_key /etc/imagegate/tls/privkey.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        server_tokens off;
+        # max(100MiB original,5MiB stamp) + 64KiB envelope. Bytes, not a rounded 100m.
+        client_max_body_size 104923136;
+        client_header_timeout 10s;
+        client_body_timeout 20s;
+        keepalive_timeout 15s;
+        send_timeout 60s;
+        limit_conn imagegate_upload_ip 2;
+        limit_conn imagegate_upload_total 4;
+        limit_conn_status 429;
+        error_page 408 = @imagegate_timeout;
+        error_page 413 = @imagegate_too_large;
+        error_page 429 = @imagegate_busy;
+        location / {
+            proxy_pass http://127.0.0.1:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header Host imagegate.example.invalid;
+            proxy_set_header X-Forwarded-Host imagegate.example.invalid;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header Forwarded "";
+            proxy_request_buffering off;
+            proxy_buffering off;
+            proxy_max_temp_file_size 0;
+            proxy_cache off;
+            proxy_store off;
+            proxy_next_upstream off;
+            proxy_intercept_errors off;
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 150s;
+            gzip off;
+        }
+        location @imagegate_timeout {
+            default_type application/problem+json;
+            add_header Cache-Control no-store always;
+            return 408 '{"status":408,"code":"PROXY_REQUEST_TIMEOUT"}';
+        }
+        location @imagegate_too_large {
+            default_type application/problem+json;
+            add_header Cache-Control no-store always;
+            return 413 '{"status":413,"code":"PROXY_REQUEST_TOO_LARGE"}';
+        }
+        location @imagegate_busy {
+            default_type application/problem+json;
+            add_header Cache-Control no-store always;
+            return 429 '{"status":429,"code":"PROXY_UPLOAD_BUSY"}';
+        }
+    }
+}

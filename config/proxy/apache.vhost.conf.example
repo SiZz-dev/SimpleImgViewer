@@ -1,0 +1,36 @@
+# Include in a complete dedicated Apache HTTP Server 2.4 configuration.
+# Required loaded modules: ssl, socache_shmcb (if used by base SSL config), reqtimeout,
+# proxy, proxy_http, headers, env. Parent config must Listen 443 exactly once.
+# Select an MPM/worker budget separately; this vhost is not a per-IP connection limiter.
+<VirtualHost *:443>
+    ServerName imagegate.example.invalid
+    SSLEngine on
+    SSLCertificateFile "/etc/imagegate/tls/fullchain.pem"
+    SSLCertificateKeyFile "/etc/imagegate/tls/privkey.pem"
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    RequestReadTimeout handshake=10 header=10-20,MinRate=500 body=10-120,MinRate=131072
+    LimitRequestBody 104923136
+    LimitRequestFields 64
+    LimitRequestFieldSize 8190
+    ProxyRequests Off
+    ProxyPreserveHost On
+    ProxyAddHeaders On
+    ProxyErrorOverride Off
+    ProxyTimeout 150
+    RequestHeader unset Forwarded
+    RequestHeader unset X-Forwarded-For
+    RequestHeader unset X-Forwarded-Host
+    RequestHeader unset X-Forwarded-Proto
+    RequestHeader set Host "imagegate.example.invalid"
+    RequestHeader set X-Forwarded-Proto "https"
+    # Stream body to HTTP/1.1 backend; do not force Content-Length spooling.
+    SetEnv proxy-sendchunked 1
+    SetEnv no-gzip 1
+    <IfModule cache_module>
+        CacheDisable "/"
+    </IfModule>
+    ProxyPass "/" "http://127.0.0.1:8080/" connectiontimeout=5 timeout=150
+    ProxyPassReverse "/" "http://127.0.0.1:8080/"
+    ErrorLog "/var/log/apache2/imagegate-error.log"
+    CustomLog "/var/log/apache2/imagegate-access.log" "%>s %m %D"
+</VirtualHost>

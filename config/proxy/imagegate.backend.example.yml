@@ -1,0 +1,14 @@
+# Merge this server block into the actual install YAML. Do not duplicate YAML keys.
+# Same-machine TLS proxy only. Start with prod profile for Secure session cookies.
+server:
+  address: 127.0.0.1
+  port: 8080
+  forward-headers-strategy: native
+  http2:
+    enabled: false
+  tomcat:
+    remoteip:
+      internal-proxies: '127\.0\.0\.1'
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      protocol-header-https-value: https
