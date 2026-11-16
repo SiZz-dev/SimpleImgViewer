@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "status": "EXPERIMENTAL_BUILD_INPUTS_NOT_DISTRIBUTION_APPROVAL",
+  "libvips": "8.18.7",
+  "compiler": "LLVM-MinGW 20261104 UCRT x86_64 / clang 23.1.5",
+  "pythonTools": {
+    "ninja": "1.13.2",
+    "cmake": "4.4.4",
+    "meson": "1.12.1"
+  },
+  "archives": [
+    {
+      "publisherDigestMatched": true,
+      "sha256": "552191b5754c49a5a20723276a6fc56541ea1922c4c50b7b669022333fc1b40f",
+      "name": "llvm-mingw-20261104-ucrt-x86_64.zip",
+      "url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261104/llvm-mingw-20261104-ucrt-x86_64.zip"
+    },
+    {
+      "publisherDigestMatched": true,
+      "sha256": "3a122eb3d588690008216f786338e2f9329dba3c3c2768b5933cf7299d549241",
+      "name": "vips-dev-x64-web-8.18.7.zip",
+      "url": "https://github.com/libvips/build-win64-mxe/releases/download/v8.18.7/vips-dev-x64-web-8.18.7.zip"
+    },
+    {
+      "publisherDigestMatched": true,
+      "sha256": "5baaead3b0bb20ffdb9e9ff09aa9fda08620923df77b63b436654cb5e0b3bf94",
+      "name": "vips-8.18.7.tar.xz",
+      "url": "https://github.com/libvips/libvips/releases/download/v8.18.7/vips-8.18.7.tar.xz"
+    },
+    {
+      "publisherDigestMatched": true,
+      "sha256": "9371b2f6372da574d4c6dc96fe9b1463037bcf6afcb6671c1555afde7b17e2de",
+      "name": "pkgconf-3.0.10.tar.xz",
+      "url": "https://github.com/pkgconf/pkgconf/releases/download/pkgconf-3.0.10/pkgconf-3.0.10.tar.xz"
+    },
+    {
+      "publisherDigestMatched": false,
+      "sha256": "62b15f44c10106065211efa22a2dc77937bd97ee1f6e3afd2c9659010de112eb",
+      "name": "libtiff-v4.7.2.tar.gz",
+      "integrityBasis": "Observed SHA-256 of official tagged source over TLS; not the OSGeo release archive digest",
+      "url": "https://gitlab.com/libtiff/libtiff/-/archive/v4.7.2/libtiff-v4.7.2.tar.gz"
+    }
+  ],
+  "glibGenerators": [
+    {
+      "sha256": "f87e8c7d420adc3348f19afd2f0636d8eecb9b350762a26b2ae49f8a67954853",
+      "name": "glib-mkenums-2.90.0.py",
+      "url": "https://raw.githubusercontent.com/GNOME/glib/2.90.0/gobject/glib-mkenums.in"
+    },
+    {
+      "sha256": "8691d1119845a6b8e90cfe83a99cd567c8643d62fc5831ea607cf5491a067e81",
+      "name": "glib-genmarshal-2.90.0.py",
+      "url": "https://raw.githubusercontent.com/GNOME/glib/2.90.0/gobject/glib-genmarshal.in"
+    }
+  ],
+  "codecHeaders": [
+    {
+      "url": "https://raw.githubusercontent.com/madler/zlib/v1.3.1/zlib.h",
+      "sha256": "8a5579af72ea4f427ff00a4150f0ccb3fc5c1e4379f726e101133b1ab9fc600c",
+      "name": "zlib.h"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/madler/zlib/v1.3.1/zconf.h",
+      "sha256": "f5134250a67d57459234b63858f0d9d3ef8dcc48e9e1028d3f4fdcf6eae677ae",
+      "name": "zconf.h"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/libexpat/libexpat/R_2_8_5/expat/lib/expat.h",
+      "sha256": "17cd1fc3b4c61d00de96091ceed0a3721d5bac9755c6d04e89d9f8a79d037c12",
+      "name": "expat.h"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/libexpat/libexpat/R_2_8_5/expat/lib/expat_external.h",
+      "sha256": "2249eae72c6bc9021b7110267507cca98ff6a269fb8b5af5bcb508858e83bfc1",
+      "name": "expat_external.h"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/pnggroup/libpng/v1.6.58/png.h",
+      "sha256": "81501c268ec5c3dc79efc6ac9fddb63b22a25e4931360ddd7b29b1744d6cb6b8",
+      "name": "png.h"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/pnggroup/libpng/v1.6.58/pngconf.h",
+      "sha256": "ba8620bbc7612b656cf547eab806ea90bf16b6c0b97fc99e9d39568dc926b802",
+      "name": "pngconf.h"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/pnggroup/libpng/v1.6.58/scripts/pnglibconf.h.prebuilt",
+      "sha256": "1911b17912d9cc9f62126a9daf11e6f6560bd0ec1b8886d08440c92815fc82bf",
+      "name": "pnglibconf.h"
+    },
+    {
+      "name": "jpeglib.h",
+      "sha256": "e125b54bc60d180e945077a95c0aeb1aacae81bf998ca47c75b6b9a3ee377959",
+      "url": "https://raw.githubusercontent.com/mozilla/mozjpeg/08265790774cd0714832c9e675522acbe5581437/jpeglib.h"
+    },
+    {
+      "name": "jmorecfg.h",
+      "sha256": "80a97f45ecb28d83310247eecec2a3865b5fd39ba0ecc490b48a36fac6318e26",
+      "url": "https://raw.githubusercontent.com/mozilla/mozjpeg/08265790774cd0714832c9e675522acbe5581437/jmorecfg.h"
+    },
+    {
+      "name": "jerror.h",
+      "sha256": "f946c4a18a2cebc6ede21e6bc75f0fea1d84922ce4f89685574378dc7a831087",
+      "url": "https://raw.githubusercontent.com/mozilla/mozjpeg/08265790774cd0714832c9e675522acbe5581437/jerror.h"
+    },
+    {
+      "name": "jconfig.h.in",
+      "sha256": "b47159e0fb3486c1a4033d06494c2a399290da20522a2e2a460b18c95e28cab2",
+      "url": "https://raw.githubusercontent.com/mozilla/mozjpeg/08265790774cd0714832c9e675522acbe5581437/jconfig.h.in"
+    },
+    {
+      "sha256": "36c160ad164e51a56113b1d4a94df95e7bcf04df837b3db08aea03550ae93e5f",
+      "name": "libintl.h",
+      "url": "https://raw.githubusercontent.com/frida/proxy-libintl/0.5/libintl.h"
+    }
+  ],
+  "headerConfiguration": {
+    "zlib": "zlib 1.3.1 compatibility API headers for SDK zlib-ng compatibility DLL",
+    "JPEG": "SDK MozJPEG commit 08265790774cd0714832c9e675522acbe5581437; JPEG ABI 62 / 8-bit / Windows boolean; public jconfig.h generated from template",
+    "TIFF": "CMake x86_64 Windows-generated public tiffconf.h/tiffvers.h; not replacement TIFF DLL"
+  },
+  "noticesComplete": false,
+  "vulnerabilityReviewComplete": false,
+  "distributionReady": false,
+  "peTimestampPolicy": "--no-insert-timestamp on minimal libvips and worker; same-directory incremental/relink verification only"
+}

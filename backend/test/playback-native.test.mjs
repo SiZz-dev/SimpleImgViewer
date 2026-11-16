@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import {createApplication} from '../system/controller/application.mjs';
+for(const format of ['mp4','mpeg','mp3','wav'])test('installed FFmpeg '+format+' normalization and guarded Range API',{skip:process.env.SIV_NATIVE_TESTS!=='1'},async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'siv-node-playback-'));
+  const application=await createApplication({development:true,overrides:{server:{host:'127.0.0.1',port:0},storage:{root},upload:{minFreeBytes:0}}});t.after(()=>application.close());
+  assert.equal(application.config.playback.enabled,true,'Native opt-in requires installed and pinned FFmpeg');
+  const address=await application.listen(),base='http://127.0.0.1:'+address.port;
+  const bootstrap=await fetch(base+'/api/v1/viewer/bootstrap'),cookie=bootstrap.headers.get('set-cookie').split(';')[0],csrf=(await bootstrap.json()).csrf.token;
+  const video=['mp4','mpeg'].includes(format);const input=path.join(root,'synthetic.'+format);const args=['-hide_banner','-loglevel','error','-nostdin'];
+  if(video)args.push('-f','lavfi','-i','testsrc=size=160x96:rate=25');args.push('-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','2');
+  if(format==='mp4')args.push('-c:v','mpeg4','-c:a','aac','-movflags','+faststart');
+  if(format==='mpeg')args.push('-c:v','mpeg2video','-c:a','mp2','-f','mpeg');
+  if(format==='mp3')args.push('-c:a','libmp3lame');if(format==='wav')args.push('-c:a','pcm_s16le');args.push(input);
+  await application.playback.run(application.config.playback.ffmpeg,args);
+  const form=new FormData();form.append('file',new Blob([await fs.readFile(input)]),'synthetic.'+format);
+  const registered=await fetch(base+'/api/v1/media',{method:'POST',headers:{Cookie:cookie,'X-CSRF-TOKEN':csrf},body:form});assert.equal(registered.status,201);const record=await registered.json();
+  const prepared=await fetch(base+'/api/v1/media/'+record.mediaId+'/playback',{method:'POST',headers:{Cookie:cookie,'X-CSRF-TOKEN':csrf}});assert.equal(prepared.status,200);const info=await prepared.json();assert.equal(info.state,'ready');assert.equal(info.mimeType,video?'video/webm':'audio/mpeg');assert.ok(info.durationSeconds>=1.8&&info.durationSeconds<=2.5);
+  const partial=await fetch(base+info.url,{headers:{Cookie:cookie,Range:'bytes=0-31'}});assert.equal(partial.status,206);assert.equal((await partial.arrayBuffer()).byteLength,32);
+  const invalid=await fetch(base+info.url,{headers:{Cookie:cookie,Range:'bytes=0-1,5-8'}});assert.equal(invalid.status,416);
+});

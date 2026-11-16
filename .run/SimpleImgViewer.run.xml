@@ -1,0 +1,5 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="SimpleImgViewer" type="NodeJSConfigurationType" singleton="true" path-to-node="$PROJECT_DIR$/.tools/runtimes/node-24.22.1/node" path-to-js-file="scripts/dev.mjs" working-dir="$PROJECT_DIR$">
+    <method v="2" />
+  </configuration>
+</component>

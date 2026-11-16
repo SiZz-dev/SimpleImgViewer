@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "status": "CANDIDATE_PRIMARY_TERMS_IDENTIFIED_NOT_DISTRIBUTION_APPROVAL",
+  "workerBuild": "imagegate-libvips-worker-winjob-v2",
+  "licenseReviewComplete": false,
+  "distributionReady": false,
+  "components": [
+    {
+      "version": "winjob-v2",
+      "terms": [
+        "worker"
+      ],
+      "id": "worker",
+      "representativeLicense": "BSD-3-Clause"
+    },
+    {
+      "version": "8.18.7",
+      "terms": [
+        "vips"
+      ],
+      "id": "vips",
+      "representativeLicense": "LGPL-2.1-or-later"
+    },
+    {
+      "version": "2.90.0",
+      "terms": [
+        "glib"
+      ],
+      "id": "glib",
+      "additionalReview": "Embedded PCRE2/GVDB/other code and SDK build conditions require separate review",
+      "representativeLicense": "LGPL-2.1-or-later"
+    },
+    {
+      "version": "3.8.0",
+      "terms": [
+        "ffi"
+      ],
+      "id": "ffi",
+      "representativeLicense": "MIT"
+    },
+    {
+      "version": "2.8.5",
+      "terms": [
+        "expat"
+      ],
+      "id": "expat",
+      "representativeLicense": "MIT"
+    },
+    {
+      "version": "08265790774cd0714832c9e675522acbe5581437 / SDK 5.0.0",
+      "terms": [
+        "mozjpeg",
+        "ijg"
+      ],
+      "id": "mozjpeg",
+      "representativeLicense": "MULTIPLE-IJG-BSD-ZLIB"
+    },
+    {
+      "version": "1.6.58",
+      "terms": [
+        "png"
+      ],
+      "id": "png",
+      "representativeLicense": "libpng-2.0"
+    },
+    {
+      "version": "4.7.2",
+      "terms": [
+        "tiff"
+      ],
+      "id": "tiff",
+      "representativeLicense": "libtiff"
+    },
+    {
+      "version": "1.6.0",
+      "terms": [
+        "webp",
+        "webp-patents"
+      ],
+      "id": "webp",
+      "representativeLicense": "BSD-3-Clause"
+    },
+    {
+      "version": "2.3.3 / zlib 1.3.1 compatibility",
+      "terms": [
+        "zlib-ng"
+      ],
+      "id": "zlib-ng",
+      "representativeLicense": "Zlib"
+    },
+    {
+      "version": "LLVM-MinGW 20261104 / LLVM 23.1.5",
+      "terms": [
+        "llvm-runtime"
+      ],
+      "id": "llvm-runtime",
+      "additionalReview": "libc++/libc++abi/libunwind embedded third-party and MinGW startup code require separate review",
+      "representativeLicense": "Apache-2.0 WITH LLVM-exception"
+    }
+  ],
+  "files": [
+    {
+      "bytes": 202240,
+      "sha256": "2e9a4e2adda3614d0d8f0b041c15ab505bf03d2bb6add269b75237c8555be15c",
+      "component": "worker",
+      "name": "imagegate-converter.exe"
+    },
+    {
+      "bytes": 2000384,
+      "sha256": "a0f7544c848fd671657423163220de50c2cd3ade55344a30846679759a795d0e",
+      "component": "llvm-runtime",
+      "name": "libc++.dll"
+    },
+    {
+      "bytes": 139264,
+      "sha256": "b960c03868d8f3d21c0e40a0c2d8b3704d4833bdee216fb617db720d06b315a3",
+      "component": "expat",
+      "name": "libexpat-1.dll"
+    },
+    {
+      "bytes": 64512,
+      "sha256": "89fac759600f328e556870d65dd01bf2c6a591a5a0bf7eff224ee78a0c59e37a",
+      "component": "ffi",
+      "name": "libffi-8.dll"
+    },
+    {
+      "bytes": 1157120,
+      "sha256": "b9cb469131059b7bc84fadebeb43c49464dbf5e73d46c0c96ffbaa8e7d823f59",
+      "component": "glib",
+      "name": "libgio-2.0-0.dll"
+    },
+    {
+      "bytes": 1034752,
+      "sha256": "fa5a7a698bf7ecd6767b373467346bb574a794eb8647383df6149f9c5f39417e",
+      "component": "glib",
+      "name": "libglib-2.0-0.dll"
+    },
+    {
+      "bytes": 15872,
+      "sha256": "066d04d888c2e453a64568ea867b20c6e1fc34b8d37282b14c909aa35941f25e",
+      "component": "glib",
+      "name": "libgmodule-2.0-0.dll"
+    },
+    {
+      "bytes": 214016,
+      "sha256": "d2a6a5b3fe463ecabb9ca5b62ea86d55ace0d316e334663e3ccdebbdd4c72234",
+      "component": "glib",
+      "name": "libgobject-2.0-0.dll"
+    },
+    {
+      "bytes": 607232,
+      "sha256": "e797f624df8d058b98d621750a2b8a0f78464d23c1416ece8959515ea926dae3",
+      "component": "mozjpeg",
+      "name": "libjpeg-62.dll"
+    },
+    {
+      "bytes": 181760,
+      "sha256": "461610d0b8d4afe82b2372786e0a9b66bce6376e16e33b79855a7f5dab4e7477",
+      "component": "png",
+      "name": "libpng16-16.dll"
+    },
+    {
+      "bytes": 21504,
+      "sha256": "429a6c855be9004a3f9cfe3745c1a4ded9a618ffd8969eca6a44d522852c236c",
+      "component": "webp",
+      "name": "libsharpyuv-0.dll"
+    },
+    {
+      "bytes": 412160,
+      "sha256": "029256630dfa91c70459e2d6ce00f8241307f221a751a6c91420e620a50ac660",
+      "component": "tiff",
+      "name": "libtiff-6.dll"
+    },
+    {
+      "bytes": 183808,
+      "sha256": "609c7eec28fb7e53c49b6d9affd5c0332c2997824a1eb8ba064dbaf2013140c4",
+      "component": "llvm-runtime",
+      "name": "libunwind.dll"
+    },
+    {
+      "bytes": 2867200,
+      "sha256": "cd3cb9f9f5f4c3b755849dccd931263231e3f730b91fe22322c08307c18bcb8f",
+      "component": "vips",
+      "name": "libvips-42.dll"
+    },
+    {
+      "bytes": 380928,
+      "sha256": "27d8dc57e63fa2ac5798628d7fa3e044cc06d7dd2c005fd8a8b719c09f1a432e",
+      "component": "webp",
+      "name": "libwebp-7.dll"
+    },
+    {
+      "bytes": 202752,
+      "sha256": "40484b21bcce8db31d247974777bdc423e445baaa63fcfa091bab07e3245b959",
+      "component": "zlib-ng",
+      "name": "libz1.dll"
+    }
+  ],
+  "terms": [
+    {
+      "id": "glib",
+      "sha256": "65986a89240f59896ce42a3779bbe5ed486a0bca7df636a8eef030fd2e1a0984",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/GNOME/glib/2.90.0/COPYING"
+    },
+    {
+      "id": "ffi",
+      "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/libffi/libffi/v3.8.0/LICENSE"
+    },
+    {
+      "id": "expat",
+      "sha256": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/libexpat/libexpat/R_2_8_5/expat/COPYING"
+    },
+    {
+      "id": "mozjpeg",
+      "sha256": "96f5b328adbb78eeaaec6980d73fd558cb1e4d62560ed615646bc3cf5e532430",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/mozilla/mozjpeg/08265790774cd0714832c9e675522acbe5581437/LICENSE.md"
+    },
+    {
+      "id": "ijg",
+      "sha256": "f4a85f8677ca4e41b185c0a9f7c31a30ddb9ce43c561483ee92ef12db37c2a10",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/mozilla/mozjpeg/08265790774cd0714832c9e675522acbe5581437/README.ijg"
+    },
+    {
+      "id": "png",
+      "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/pnggroup/libpng/v1.6.58/LICENSE"
+    },
+    {
+      "id": "webp",
+      "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/COPYING"
+    },
+    {
+      "id": "webp-patents",
+      "sha256": "cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/webmproject/libwebp/v1.6.0/PATENTS"
+    },
+    {
+      "id": "zlib-ng",
+      "sha256": "6c9f0d975b41afaa34d22f55bb8986ce69e5cb7ad327cb2b28820cd425edf5ee",
+      "sourceKind": "https-primary",
+      "source": "https://raw.githubusercontent.com/zlib-ng/zlib-ng/2.3.3/LICENSE.md"
+    },
+    {
+      "id": "worker",
+      "sha256": "6b927bd39d46995d9e17930d2dc1511cdddcbf6fb0b81ce4a6189a9abf9be6ce",
+      "sourceKind": "repository-local",
+      "source": "LICENSE"
+    },
+    {
+      "id": "vips",
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+      "sourceKind": "repository-local",
+      "source": ".tools/native-sources/vips-8.18.7/LICENSE"
+    },
+    {
+      "id": "tiff",
+      "sha256": "0e27c2382d7b8147972bbb746e04059a1152c8d0fda9d03ef1399d1a433c4ade",
+      "sourceKind": "repository-local",
+      "source": ".tools/native-sources/libtiff-v4.7.2/LICENSE.md"
+    },
+    {
+      "id": "llvm-runtime",
+      "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+      "sourceKind": "repository-local",
+      "source": ".tools/native-toolchain/llvm-mingw-20261104-ucrt-x86_64/LICENSE.TXT"
+    }
+  ],
+  "remaining": [
+    "embedded/static third-party source inventory and terms",
+    "complete copyright/NOTICE and LGPL source/replacement instructions",
+    "native vulnerability and codec patent review",
+    "OS filesystem/network isolation",
+    "deployment approval"
+  ]
+}

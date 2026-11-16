@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import {randomUUID,randomBytes} from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import sharp from 'sharp';
+import {createApplication} from '../backend/system/controller/application.mjs';
+const require=createRequire(path.join(process.env.IMAGEGATE_NODE_MODULES,'package.json'));
+const {chromium}=require('playwright');
+const output=path.resolve('build/reports/node-react-browser');await fs.mkdir(output,{recursive:true});
+await fs.writeFile(path.join(output,'verification.json'),JSON.stringify({passed:false,status:'CHECKING'}));
+const root=await fs.mkdtemp(path.resolve('build/acceptance/node-react-'));
+const application=await createApplication({development:true,overrides:{server:{host:'127.0.0.1',port:0},storage:{root},upload:{minFreeBytes:0}}});
+const address=await application.listen(),base='http://127.0.0.1:'+address.port;
+const browser=await chromium.launch({executablePath:process.env.IMAGEGATE_BROWSER,headless:true});
+const scenarios=[];
+let ownedSample;
+let observedPage;const rejectedResponses=[];
+try{
+  const context=await browser.newContext({viewport:{width:1440,height:920}}),page=await context.newPage();observedPage=page;const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',async r=>{if(r.status()>=400&&new URL(r.url()).pathname.startsWith('/api/'))rejectedResponses.push({path:new URL(r.url()).pathname,status:r.status(),body:(await r.text()).slice(0,1000)});});
+  await page.goto(base+'/viewer');await page.getByRole('button',{name:'＋ 파일 열기'}).waitFor();
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('파일 열기'))?.disabled);
+  const png=await sharp({create:{width:800,height:500,channels:3,background:'#3388cc'}}).png().toBuffer();
+  await page.getByTestId('file-input').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:png});
+  await page.locator('.main-image').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('.main-image')?.naturalWidth===800);assert.equal(await page.locator('.file-row').count(),1);assert.ok(page.url().includes('sessionId='));scenarios.push('React upload, Node image worker, private preview and session');
+  await page.getByLabel('메모 내용').fill('React 메모');await page.getByRole('button',{name:/메모 추가/}).click();await page.locator('.surface').click({position:{x:400,y:250}});
+  await page.locator('.annotation.note').waitFor({state:'visible'});assert.equal(await page.locator('.annotation.note').innerText(),'React 메모');scenarios.push('click-position note persisted by Node API');
+  await page.getByRole('button',{name:'실행 취소',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.annotation.note').length===0);
+  await page.getByRole('button',{name:'다시 실행',exact:true}).click();await page.locator('.annotation.note').waitFor();scenarios.push('revision-checked undo and redo');
+  await page.getByTestId('stamp-input').setInputFiles({name:'stamp.png',mimeType:'image/png',buffer:png});
+  await page.waitForFunction(()=>document.querySelector('select[aria-label="스탬프 선택"]').value!=='');
+  await page.locator('.surface').click({position:{x:100,y:100}});await page.locator('.annotation.stamp').waitFor();scenarios.push('uploaded stamp placed by image click');
+  await page.screenshot({path:path.join(output,'viewer-dark.png')});
+  await page.getByRole('button',{name:'라이트 테마로 전환'}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');await page.screenshot({path:path.join(output,'viewer-light.png')});scenarios.push('dark and light theme');
+  await page.getByRole('button',{name:/영역 선택/}).click();const box=await page.locator('.main-image').boundingBox();
+  await page.mouse.move(box.x+300,box.y+100);await page.mouse.down();await page.mouse.move(box.x+550,box.y+300,{steps:6});await page.mouse.up();
+  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'편집본 저장',exact:true}).click();const download=await downloadPromise;const file=path.join(output,'edited.png');await download.saveAs(file);const meta=await sharp(file).metadata();assert.ok(meta.width>1&&meta.height>1);scenarios.push('original-coordinate crop and composed PNG download');
+  await page.getByRole('button',{name:'화면에 맞추기'}).click();await page.getByRole('button',{name:'오른쪽으로 회전'}).click();await page.getByRole('button',{name:'돋보기',exact:true}).click();scenarios.push('fit, rotation and magnifier controls');
+  if(application.config.playback.enabled){
+    const mp4=path.join(root,'synthetic.mp4');await application.playback.run(application.config.playback.ffmpeg,['-hide_banner','-loglevel','error','-nostdin','-f','lavfi','-i','testsrc=size=320x180:rate=25','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','2','-c:v','mpeg4','-q:v','5','-c:a','aac','-movflags','+faststart',mp4]);
+    await page.getByTestId('file-input').setInputFiles(mp4);await page.locator('video').waitFor({state:'visible',timeout:30000});
+    await page.waitForFunction(()=>document.querySelector('video')?.readyState>=1);assert.ok(await page.locator('video').evaluate(v=>v.duration>1));await page.locator('video').evaluate(v=>v.play());await page.waitForFunction(()=>document.querySelector('video')?.currentTime>0,undefined,{timeout:10000});await page.locator('video').evaluate(v=>{v.pause();v.currentTime=.5;});
+    await page.screenshot({path:path.join(output,'viewer-video.png')});scenarios.push('actual MP4 to WebM, HTML video playback and seek');
+    const wav=path.join(root,'synthetic.wav');await application.playback.run(application.config.playback.ffmpeg,['-hide_banner','-loglevel','error','-nostdin','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','2','-c:a','pcm_s16le',wav]);
+    await page.getByTestId('file-input').setInputFiles(wav);await page.locator('audio').waitFor({state:'visible',timeout:30000});await page.waitForFunction(()=>document.querySelector('audio')?.readyState>=1);await page.locator('audio').evaluate(v=>v.play());await page.waitForFunction(()=>document.querySelector('audio')?.currentTime>0,undefined,{timeout:10000});await page.locator('audio').evaluate(v=>v.pause());scenarios.push('actual WAV to MP3 and HTML audio playback');
+  }
+  const samples=path.resolve('.runtime/development/url-files/TestFiles');await fs.mkdir(samples,{recursive:true});const sampleName='node-'+randomUUID()+'.png';ownedSample=path.join(samples,sampleName);await fs.writeFile(ownedSample,png,{flag:'wx'});
+  application.config.remote.allowedPrefixes=[base+'/viewer/resources/TestFiles/'];
+  await page.goto(base+'/viewer#url='+encodeURIComponent(base+'/viewer/resources/TestFiles/'+sampleName));await page.locator('.main-image').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('.main-image')?.naturalWidth===800);assert.ok(page.url().includes('sessionId='));assert.ok(!page.url().includes(sampleName));scenarios.push('URL launch, server download, private preview and source URL removal');
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'파일 목록 접기'}).click();await page.getByRole('button',{name:'도구 패널 전환'}).click();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:path.join(output,'viewer-mobile.png')});scenarios.push('mobile single-line header and collapsible panels');
+  const originalsBefore=(await fs.readdir(path.join(root,'originals'))).length,cacheBefore=application.store.cache.bytes;
+  application.store.cache.policy.maxBytes=Math.max(1048576,cacheBefore);
+  const noise=await sharp(randomBytes(800*600*3),{raw:{width:800,height:600,channels:3}}).png().toBuffer();
+  await page.getByTestId('file-input').setInputFiles({name:'quota-noise.png',mimeType:'image/png',buffer:noise});
+  await page.getByText('미리보기 저장 공간이 부족합니다.',{exact:false}).waitFor();
+  assert.equal((await fs.readdir(path.join(root,'originals'))).length,originalsBefore+1);assert.equal(application.store.cache.bytes,cacheBefore);
+  await page.screenshot({path:path.join(output,'viewer-capacity.png')});scenarios.push('actual cache 507 shows storage guidance and preserves original and existing caches');
+  const originalCount=(await fs.readdir(path.join(root,'originals'))).length;
+  application.config.storage.maxOriginalBytes=application.store.capacity.used+application.config.upload.maxBytes-1;
+  await page.getByTestId('file-input').setInputFiles({name:'original-quota.png',mimeType:'image/png',buffer:png});
+  await page.getByText('원본 보관 공간의 한도에 도달했습니다.',{exact:false}).waitFor();
+  assert.equal((await fs.readdir(path.join(root,'originals'))).length,originalCount);assert.equal(application.store.capacity.diskReserved,0);assert.equal(application.store.capacity.reserved,0);
+  await page.screenshot({path:path.join(output,'viewer-original-capacity.png')});scenarios.push('original quota 507 rejects upload before storage and returns all reservations');
+  assert.deepEqual(errors,[]);await fs.writeFile(path.join(output,'verification.json'),JSON.stringify({passed:true,scenarios,errors,javaServerUsed:false},null,2));console.log(JSON.stringify({passed:true,scenarios}));await context.close();
+}catch(error){
+  const body=observedPage?await observedPage.locator('body').innerText():'';if(observedPage)await observedPage.screenshot({path:path.join(output,'failure.png')});await fs.writeFile(path.join(output,'verification.json'),JSON.stringify({passed:false,error:error.message,scenarios,body,rejectedResponses},null,2));throw error;
+}finally{await browser.close();await application.close();if(ownedSample)await fs.unlink(ownedSample);}

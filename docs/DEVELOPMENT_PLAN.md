@@ -1,5 +1,33 @@
 # 개발 순서
 
+2026-11-12 스택 전환: 사용자 요청으로 기본 서버/화면을 Node.js24 + Express5 / React19 + Vite8로 변경했습니다. 실제 미디어·편집·URL·세션 API와 React 이벤트/화면을 구현하고 IntelliJ 단일 구성을 Node로 바꿨습니다. Java는 이관 비교용으로 보존하며 새 서버가 호출하지 않습니다. 현재 Node 시험·브라우저 검증과 기존 Java 기록은 구분하고 [이관 기록](NODE_REACT_MIGRATION.md)을 최신 기준으로 사용합니다. 다음 우선순위는 Node 네이티브 OS 강제 격리·잔재 회수·누적 저장소/운영 인수입니다. README에 순수 바이브코딩 개발 표기를 반영했습니다.
+
+2026-11-12 Java 격리 어댑터: LibvipsSandboxClient와 부모의 입력 없는 capabilities 계약을 구현했습니다. 기대 모듈 지문·고정 LPAC/자원 정책·부모/자식 오류·작업/결과 바인딩·실제 이미지 디코딩을 검증하며 기존 v2 client를 완화하지 않습니다. 새 계약30개/실제 Java-LPAC2개와 기존77개, 총109개·9 suites 및 build가1분18초에 통과했습니다. [정확한 범위와 재현](LIBVIPS_JAVA_SANDBOX_ADAPTER.md)을 따릅니다. 다음은 승인 설정/지문·ImageConverter·사용자 권한/원본 버전/SHA·캐시·최종 게시 연결입니다. Spring factory/운영 활성화와 재배포 승인은 아직 보류합니다.
+
+2026-11-12 모듈 설치: 고정 버전 FFmpeg LGPL shared와 libvips web 개발 패키지를 .tools/modules에 설치하고 원본 ZIP/전체819파일·실제 실행 옵션을 대조했습니다. Java 런타임 import 대신 명시 Gradle 설치/검증 작업과 별도 프로세스 경계를 유지하며, 개발용 경로/EXE 해시 YAML과 IntelliJ 구성을 생성했습니다. [모듈 설치](NATIVE_MODULE_INSTALLATION.md)를 따릅니다. 재배포 고지/정확한 전이 소스·취약점 검토와 libvips 서버 연결은 아직 남아 있으며 설치 ZIP은 생성하지 않습니다.
+
+2026-11-12 URL 작업: 허용 IP/디렉터리 제한·인증/CSRF·크기/시간/동시 접수 제한을 적용한 URL 등록 API와 상단 URL 입력/직접 진입을 추가했습니다. 개발 TestFiles 경로와 합성 표본 생성 도구를 제공하며, 비활성 경로의 정적 리소스 우회를 차단했습니다. 잠금·소유 기록을 사용하는 임시 작업 저장소와 자식 JVM 강제 종료 후 잔재 회수를 추가했고 집중73개와 최종 기본/img2tile/FFmpeg946개·126 suites가 통과했습니다. 최종 검증 결과와 재현은 [URL 파일 열기](REMOTE_URL_IMPORT.md)를 따릅니다. 다음 구현 단계는 기존 계획의 libvips 부모 Java 실행 어댑터/설정·시작 검사 연결입니다. 설치 ZIP 생성은 최종 운영 인수 이후로 유지합니다.
+
+2026-11-11 사용자 요청 반영: dev 단독 프로필의 dev-admin 자동 로그인·개발 조직 전체 파일 작업 권한과 별도 개발 저장소를 추가했습니다. 기본/운영 모드는 자동 로그인 비활성을 유지하고 CSRF/조직/설치 기능 경계를 보존합니다. IntelliJ 공유 실행 설정과 SimpleImgViewer 상단/브라우저 제목을 반영했으며 [실행 방법](DEVELOPMENT_LOGIN.md)을 따릅니다. 기존 서버 JVM은 새 설정으로 재시작해야 합니다.
+
+## img2tile 대체 개발 진행 (2026-11-11)
+
+- 최신 후속: 부모 BUILD lpac-launcher-v2에 보호된 작업 원장·프로필 재회수·Job 생성 시 배치·출력64MiB/프로필16MiB 감시·가용 공간 검사·원장별 활성4개 제한을 추가했습니다. 강제 종료/살아 있는 작업 보호/변조·hard link/용량·대체 스트림 거절9개와 기존 집중68개, 총77개/7 suites가1분4초에 모두 통과했습니다. 주기적 감시이며 OS 하드 quota는 아닙니다. 정확한 정리 거절/범위와 재현은 [생명주기 검증](LIBVIPS_PROFILE_LIFECYCLE.md)을 따릅니다. 다음은 Java 부모 실행 어댑터/설치 옵션·권한·캐시·게시 연결이며 factory·배포 승인은 계속 보류 상태입니다.
+
+- 최신: 별도 LPAC 부모 실행기와 contained-v3를 구현했습니다. 부모가 suspended 자식을 Job에 배치하고 capability0·읽기 전용 입력·전용 출력 ACL을 적용합니다. LPAC6 + 기존 집중62 =68개/6 suites가1분1초에 실패/오류/건너뜀0으로 통과했습니다. 실제 TIFF·원본 ACL/바이트 보존·작업 간 격리·직접 실행/미승인 런타임/hard link 거절·시간 초과 종료를 확인했습니다. 접속 거절은 registryRead만 추가한 시험 전용 토큰으로 검증하며 생산 capability0과 구분합니다. [정확한 범위](LIBVIPS_FILE_NETWORK_BOUNDARY.md)를 따릅니다. 다음은 강제 종료 후 프로필 회수·작업 용량 제한 보강, Java 실행 어댑터/권한·캐시·게시 연결입니다. factory는 계속 비활성이고 native 배포 승인과 전체 운영 인수는 남아 있습니다.
+
+- 최신 후속: Windows Job Object의512MiB 커밋 메모리/30초 사용자 CPU/활성 프로세스1 제한을 적용한 BUILD winjob-v2와 원본 경로 없는 --capabilities 시작 검사를 구현했습니다. 실제 TIFF3·자원 경계3·기존 img2tile4를 포함한 집중62개/5 suites가49초에 통과했고, 최종 build -x test도23초에 성공했습니다. 실제 메모리/자식 생성 대조군과 CPU 종료, 낡은 워커의 미디어 요청 전 거절을 검증했습니다.
+- native 후보16파일/11구성요소/13공식 원문을 고정 해시로 연결하고 변조·누락·알 수 없는 EXE·고지 변조·복구의6개 규칙 시험을 통과했습니다. technicalMatch만 참이며 legal/distribution approval은 아닙니다. [자원 경계와 잔여 항목](LIBVIPS_RESOURCE_BOUNDARY.md)을 참고하세요. 현재 자기 Job 설정은 임의 코드 실행에 대한 변조 방지 sandbox가 아니고 파일/네트워크·권한 격리·native 전체 고지/취약점·Spring 연결은 남아 있습니다. 전체848개/HTTP/Chrome은 이번 후속에서 재실행하지 않았습니다.
+
+- [대체 설계](IMG2TILE_REPLACEMENT_DESIGN.md)의 첫 구현으로 TileSourceProfile / TilePyramidValidator와 내부 PublicationProof 계약을 추가했습니다. 공유 publisher/renderer의 img2tile 전용 타입 참조와 publisher의 고정 출력 경로를 분리했습니다.
+- img2tile 검증기의 모듈/원본 프로필 제한, 증거 소유자 확인과 전체 inventory/SHA 재검사는 유지합니다. adapter가 전달한 경로도 publisher에서 작업 폴더 내부인지 독립 검사합니다.
+- 테스트 전용 다른 파일 배치 adapter의 성공과 외부/상대/비정규 경로·변경 바이트·최종 재검사 실패·다른 검증기의 증거 거절을 검증합니다. 집중61개 테스트가 실패/오류 없이 통과했습니다. 전체 build -Pimg2tileIntegration -PffmpegIntegration -PnativeViewerIntegration은10분37초에 성공했고, Java848개/119 suites의 실패·오류·건너뜀은0개입니다. 실제 native/HTTP/Chrome 연동과 라이선스16개 규칙/63개 구성요소/53개 포함 JAR 검증을 포함합니다. 일반 UI40개는 별도 재실행하지 않았습니다. 새 테스트 fixture의 실행 JAR 포함은0개이며 최종 배포 준비 완료를 뜻하지 않습니다.
+- [최소 구성 계획](LIBVIPS_MINIMUM_BUILD.md)에 필요한 코덱·제외할 로더·승인 증거를 정리했습니다. 실제 libvips 빌드·DLL/라이선스 승인·새 워커 프로토콜·factory/원본 검사/캐시 정책의 엔진별 연결은 남아 있습니다. libvips 활성화나 새 포맷 지원 완료를 뜻하지 않습니다.
+- 후속 구현: libvips8.18.0 후보 API의 C++ probe/preview 소스·CMake/최소 Meson 옵션, LibvipsWorkerClient와 result.json 엄격 검증을 추가했습니다. Java 집중45개(워커38+공통 계약7) 실패·오류·건너뜀0, 이후 build -x test의 JAR 패키징과 라이선스16개 규칙/63개 구성요소/53개 포함 JAR 검증 통과입니다. 이 후속에서 전체848개와 실제 native/브라우저 회귀는 재실행하지 않았습니다. 결과는 build/reports/libvips-worker/verification.json입니다.
+- 추가 구현: 공식 LLVM-MinGW/SDK와 검증한 소스를 .tools에 준비하여 최소 libvips8.18.7 및 전용 워커를 실제 컴파일했습니다. Magick/modules/HEIF/OpenJPEG 비활성과 PNG/TIFF 메모리 제한 API 검출을 확인했습니다. 도구/소스/공개 헤더 출처·해시는 native/imagegate-converter/build-inputs.json, 실행 파일/DLL16개(9,684,480바이트)의 SHA는 build/reports/libvips-native/runtime-inventory.json에 기록했습니다.
+- 실제 워커를 포함한48개(native3+합성38+공통7)가50초에 통과했습니다. 한글·특수문자 TIFF2페이지의 probe/PNG 전체 픽셀/JPEG 축소·잘못된 page/gray/손상 거절·원본 SHA 보존을 확인했습니다. 이어서 build -x test가27초에 성공하고 기존 Java 라이선스 검증을 통과했습니다. PE 타임스탬프 제외 후 두 새 런타임16개 해시 일치 및 EXE/DLL 강제 재링크 SHA 일치를 확인하고, 최종 런타임의 실제3개 시험을24초에 다시 통과했습니다. 이는 다른 PC의 clean source rebuild/운영 인수 증거가 아닙니다. 전체848개·HTTP/Chrome은 재실행하지 않았습니다.
+- libvips factory/설정 활성화는 하지 않았고 OS 강제 격리·native 고지/취약점·다양한 TIFF/기하 인수는 남아 있습니다. [워커 계약과 남은 검증](../native/imagegate-converter/README.md)을 참고하세요. 다음 작업은 해당 보안 경계와 기존 ImageConverter/원본 검사/캐시 정책 연결입니다. 실제 설치 설정·기존 외부 모듈은 변경하지 않고 설치 ZIP도 생성하지 않습니다.
+
 ## 현재 상태 (2026-10-29)
 
 아래 요약을 누적 진행 기록보다 우선해서 참고합니다.

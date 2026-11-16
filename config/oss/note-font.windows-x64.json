@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "noto-sans-cjk-kr-2.004",
+  "family": "Noto Sans CJK KR",
+  "license": "OFL-1.1",
+  "commit": "523d033d6cb47f4a80c58a35753646f5c3608a78",
+  "source": "https://github.com/notofonts/noto-cjk/tree/523d033d6cb47f4a80c58a35753646f5c3608a78",
+  "copyright": "© 2014-2021 Adobe (http://www.adobe.com/).",
+  "files": [
+    {"name":"NotoSansCJKkr-Regular.otf","bytes":16433112,"sha256":"6bcb2a0703aa137e874fc2dffa85f6c21ba9a67fa329e81b8c801663af7e992a","gitBlobSha1":"dc4a7c65e6f450bf17c10a2405250b620eb78703","path":"Sans/OTF/Korean/NotoSansCJKkr-Regular.otf"},
+    {"name":"LICENSE","bytes":4301,"sha256":"6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2","gitBlobSha1":"d952d62c065f3f35fb83a173496e90b21525aef3","path":"LICENSE"}
+  ],
+  "distributionReady": false,
+  "remaining": ["include original OFL and copyright with font redistribution", "complete overall application/native dependency release acceptance"]
+}

@@ -21,3 +21,8 @@ application-local.yml
 
 config/imagegate.yml
 data/
+/src/main/resources/TestFiles/
+node_modules/
+dist/
+coverage/
+config/simpleimgviewer.yml

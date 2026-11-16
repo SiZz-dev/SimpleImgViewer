@@ -1,0 +1,114 @@
+# Copy to config/simpleimgviewer.yml (ignored) or set SIMPLEIMGVIEWER_CONFIG.
+# Node.js server. Development login is enabled only by the --dev CLI/dev entry.
+server:
+  host: 127.0.0.1
+  port: 8080
+  allowedHosts: [localhost, 127.0.0.1, '[::1]', 192.168.0.86]
+storage:
+  root: .runtime/node/media
+  # Original source payloads only; metadata, stamps and caches are separate.
+  # Each incoming original reserves upload.maxBytes until actual size is committed.
+  maxOriginalBytes: 10737418240
+  originalScanLimit: 10000
+# Expired viewer-session JSON only; originals, annotations and caches are preserved.
+# One Node server per local storage root; cooperating Node servers are locked out.
+sessions:
+  cleanupEnabled: true
+  ttlMs: 1800000
+  maxEntries: 1000
+  scanLimit: 10000
+# Startup recovery: multipart/transfers and derived/image-work / playback-work outputs.
+# SQLite owner.sqlite must not be removed/replaced while a server is running.
+# Work leases/retired markers are retained after crash recovery; never remove
+# them manually while an old worker may exist. Busy workers are preserved.
+# Local disk only. Legacy servers, network shares and derived caches are not covered.
+temporary:
+  recoveryEnabled: true
+  minAgeMs: 3600000
+  scanLimit: 10000
+# Valid completed image/playback caches only. Startup eviction precedes listening.
+# Running servers never evict; a new cache beyond this budget fails with HTTP 507.
+cache:
+  cleanupOnStartup: true
+  maxBytes: 2147483648
+  maxAgeMs: 604800000
+  scanLimit: 10000
+upload:
+  maxBytes: 104857600
+  minFreeBytes: 536870912
+processing:
+  concurrency: 2
+  timeoutMs: 30000
+  maxPixels: 16000000
+  previewEdge: 1600
+  # Mandatory image-worker Windows Job launcher. Dev reads the build manifest.
+  jobLauncher: ''
+  jobLauncherSha256: ''
+  jobMemoryMiB: 512
+  jobCpuSeconds: 30
+  jobCpuRatePercent: 100
+features:
+  image: true
+  zoom: true
+  rotation: true
+  brightness: true
+  magnifier: true
+  annotations: true
+  stamps: true
+  stampUpload: true
+  cropAndSave: true
+  exportEdited: true
+  video: true
+  audio: true
+  videoSeek: true
+  audioSeek: true
+  videoPlaybackSpeed: true
+  audioPlaybackSpeed: true
+remote:
+  enabled: false
+  allowedPrefixes: []
+  timeoutMs: 30000
+runtimeVersions:
+  # Version selection; execution boundary is chosen separately in isolation.mode.
+  # Pre-publish/activate verified node (and ffmpeg when playback is enabled) before enabling.
+  # Missing/changed active versions fail closed; configured direct paths are not a fallback.
+  enabled: false
+  # Keep separate from storage.root and dist; one server owns this catalog.
+  root: .runtime/node/runtimes
+  maxBytes: 1073741824
+  maxVersions: 10
+isolation:
+  # windows-job remains the default. lpac requires runtimeVersions.enabled: true,
+  # activated verified snapshots, and font profile when edited notes are enabled.
+  # This opt-in path is verified on the development Windows x64 host; other OS
+  # versions still require deployment acceptance. Unsupported native calls fail closed.
+  mode: windows-job
+  # Separate from originals/cache, runtimeVersions.root and dist.
+  root: .runtime/node/lpac
+  # Absolute paths + lowercase SHA-256 from the corresponding build manifests.
+  # build/lpac-image/launcher.json and build/lpac-media/launcher.json.
+  imageLauncher: ''
+  imageLauncherSha256: ''
+  mediaLauncher: ''
+  mediaLauncherSha256: ''
+  maxEntries: 40
+  recoveryEnabled: true
+  recoveryMinAgeMs: 60000
+  recoveryIntervalMs: 60000
+  scanLimit: 200
+# Dev mode also accepts the verified module installer YAML when this section is absent.
+playback:
+  enabled: false
+  # Required in windows-job mode for FFmpeg/FFprobe; no direct-process fallback.
+  # Build via scripts/build-process-job.ps1. Dev loads build/process-job/launcher.json.
+  jobLauncher: ''
+  jobLauncherSha256: ''
+  # Per FFmpeg/FFprobe invocation: committed memory and cumulative user-mode CPU.
+  # CPU rate is a hard cap over machine processor cycles, separate from wall timeout.
+  jobMemoryMiB: 1024
+  jobCpuSeconds: 120
+  jobCpuRatePercent: 100
+  ffmpeg: ''
+  ffprobe: ''
+  ffmpegSha256: ''
+  ffprobeSha256: ''

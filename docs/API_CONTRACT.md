@@ -1,5 +1,9 @@
 # Viewer API 계약 초안 v1
 
+현재 기본 서버는 Node.js로 전환했습니다. 이 문서는 보존한 Spring 구현의 상세 계약이며 새 Node API와 모든 DTO·비동기 상태·오류가 동일하다고 가정하지 않습니다. 새 화면과 함께 검증한 엔드포인트 및 미이관 범위는 [Node/React 이관](NODE_REACT_MIGRATION.md)을 참고합니다.
+
+URL 등록: 인증과 CSRF가 필요한 `POST /api/v1/media/import-url`에 `{"url":"http://192.168.0.86:8080/viewer/resources/TestFiles/sample.jpg"}`를 보냅니다. 선택 항목은 `fileName`이며 성공 시 기존 업로드와 같은201 미디어 응답을 반환합니다. URL 허용 목록·제한·오류와 뷰어 진입 방식은 [URL 파일 열기](REMOTE_URL_IMPORT.md)를 따릅니다.
+
 연계 시스템이 추후 전달할 파일 권한의 의미와 인증 경계는 [LINKED_AUTHORIZATION.md](LINKED_AUTHORIZATION.md)에 정리했습니다. 이 초안의 grant 예시는 현재 뷰어/미디어 API가 수신·신뢰하는 요청 필드가 아닙니다.
 
 미리보기의 미지원 구성·잘못된 입력·변환 실패 코드, 고정 안내 및 재시도 계약은 [PREVIEW_FAILURES.md](PREVIEW_FAILURES.md)를 참고합니다. CONVERSION_UNSUPPORTED_PROFILE은 비동기 failed 상태의 errorCode이며 새로운 HTTP 오류 응답 형식이 아닙니다.

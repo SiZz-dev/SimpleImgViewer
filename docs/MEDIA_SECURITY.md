@@ -25,7 +25,7 @@
   신뢰 가능한 AuthenticationProvider/필터를 통해 SecurityContext에 인증 객체를 설정해야 합니다.
 - 브라우저가 보낸 사용자 ID·조직 ID·권한·임의 헤더를 인증 객체로 전환하면 안 됩니다.
 - 임의 X-Tenant-Id/X-User-Id 헤더, 일반 문자열 principal, 비인증 principal은 사용하지 않습니다.
-- 개발용 로그인·기본 계정·비밀번호·헤더 인증 우회는 추가하지 않았습니다.
+- 기본 실행은 개발 계정을 생성하지 않습니다. 명시적 dev 단독 프로필의 [자동 로그인](DEVELOPMENT_LOGIN.md)은 서버 설정의 공유 개발 관리자만 사용하며, 비밀번호/클라이언트 헤더로 인증하지 않습니다. 실제 SSO 공급자와 구분합니다.
 - 테스트의 authentication(...)은 Spring Security 테스트 전용이며 운영 기능이 아닙니다.
 - UserDetailsService의 기본 계정 생성은 차단하며, 실제 공급자는 후속 통합 시 구성합니다.
 

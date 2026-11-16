@@ -1,5 +1,13 @@
 # 런타임 의존성 라이선스 식별과 변경 검증
 
+현재 기본 실행은 Node.js + React입니다. Node90패키지의 고지문·메타데이터/lockfile 기준선은 scripts/audit-node-licenses.mjs와 config/oss/node-license-baseline.windows-x64.json으로 관리합니다. 아래 Java JAR 검증은 보존한 이전 구현의 범위이며 Node 승인 결과가 아닙니다. [새 스택의 라이선스·잔여 항목](NODE_REACT_MIGRATION.md)을 따릅니다.
+
+2026-11-12: Java 런타임 의존성을 추가하지 않고 Gradle 명시 작업으로 Windows x64 FFmpeg LGPL shared와 libvips web 개발 설치를 관리합니다. 원본 ZIP/전체 파일·실행 옵션을 검사하고 라이선스 텍스트를 보존하지만 재배포 승인은 하지 않습니다. [설치와 배포 경계](NATIVE_MODULE_INSTALLATION.md)를 따릅니다.
+
+별도 LPAC launcher/contained-v3의 직접 작성 소스도 루트 BSD-3-Clause를 따르지만 새 EXE는 기존 v2 native 후보16파일 해시 정책의 승인 대상이 아닙니다. 같은15개 DLL이라도 전체 고지/내장 코드/소스 제공·취약점 승인이 완료된 것은 아닙니다. [격리 실행기 상태](LIBVIPS_FILE_NETWORK_BOUNDARY.md)를 따릅니다.
+
+2026-11-11 추가: 실험용 libvips 워커는 이 Java63개/JAR53개 검증 범위 밖입니다. 별도 후보 정책으로16개 EXE/DLL과11개 구성요소·13개 공식 고지 원문을 연결했으며, [네이티브 자원/고지 검증](LIBVIPS_RESOURCE_BOUNDARY.md)의 technicalMatch는 legal approval이나 최종 배포 준비 완료를 뜻하지 않습니다. native 내장 코드·추가 NOTICE/소스 제공·취약점 검토는 남아 있습니다.
+
 2026-10-22 기준, 고정된 실제 파일을 기술적으로 식별한 목록입니다. 법무 승인이나 최종 배포 준비 완료를 뜻하지 않습니다. 대표 라이선스 표기 하나로 JAR 내부의 하위 구성요소 조건을 덮어쓰지 않습니다.
 
 ## 범위
