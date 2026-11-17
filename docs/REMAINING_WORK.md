@@ -16,6 +16,7 @@
 | API 스모크 (임시 저장소, 개발 모드) | health·bootstrap·업로드 201·페이지 200(최초 349ms / 캐시 12ms)·미리보기/썸네일 200·메모 201·편집본 반출 200·CSRF 누락 403 |
 | 실제 브라우저 시나리오 | Playwright 시나리오(`scripts/test-node-viewer.mjs`)는 실행하지 않음. 11-17 기능 설정 수정은 앱 내장 브라우저로 직접 확인(4절 완료 기록) |
 | Git | 11-17 미커밋 작업과 이 문서를 `f88d8e0`·`80a806b`로 커밋·푸시함 |
+| 새 PC 설치 재현 (11-17) | 새 클론에서 README 「설치」 순서(Node·pnpm·LLVM-MinGW·Job 실행기·FFmpeg)로 기본 129 통과/16 건너뜀, `SIV_NATIVE_TESTS=1` 145/145 통과. Windows CRLF 체크아웃이 lockfile 해시를 깨던 문제는 `.gitattributes` LF 고정(`fcd982b`)으로 해결. LLVM-MinGW는 설치 스크립트 없이 README의 수동 다운로드·해시 대조 절차를 사용 |
 
 ---
 

@@ -19,27 +19,100 @@
 
 새 Node 경로에는 ImageMagick 의존성·모듈 선택·자동 우회가 없습니다. 네이티브 파일·실제 업무 미디어·비밀정보·node_modules는 Git에 포함하지 않습니다. 프로젝트 소스에는 [BSD-3-Clause](LICENSE), 외부 구성요소에는 각각의 조건이 적용됩니다.
 
-## 실행
+## 설치 (새 PC)
 
-Node.js24와 pnpm11.25.0을 사용합니다. 현재 PC에는 프로젝트 전용 포터블 Node와 의존성을 준비했습니다.
+Windows x64 기준입니다. Node.js24.22.1과 pnpm11.25.0을 **프로젝트 전용**으로 `.tools`에 설치하며 시스템 Node·PATH는 바꾸지 않습니다. 시스템에 다른 버전 Node(예: 26)가 있어도 `engines`(>=24 <25)와 맞지 않으므로 사용하지 않습니다. Node25 이상에는 corepack이 기본 포함되지 않아 pnpm도 별도로 설치합니다.
+
+`.tools`, `build`, `node_modules`, `dist`는 Git에서 제외되므로 새로 클론한 PC에서는 아래 단계를 순서대로 한 번 실행합니다. 모든 명령은 저장소 루트의 PowerShell에서 실행합니다. 다운로드는 공식 주소만 사용하며 크기·SHA-256을 대조하고 불일치 시 중단합니다.
+
+### 1. 클론과 줄바꿈
+
+`.gitattributes`가 모든 텍스트 파일을 LF로 체크아웃합니다. `pnpm-lock.yaml`과 네이티브 소스의 SHA-256을 라이선스 기준선·빌드 기록과 대조하므로 CRLF로 바뀌면 React 빌드가 `baseline mismatch`로 중단됩니다. 이 설정(`fcd982b`) 이전에 Windows에서 클론해 CRLF로 받은 경우 변경 사항이 없는 상태에서 다시 체크아웃합니다.
 
 ```powershell
-# 새 PC: 공식 해시를 대조해 프로젝트 전용 Node를 설치
-.\scripts\install-node-runtime.ps1 -Download
-# 설치한 Node/npm을 현재 터미널에서 사용
+git ls-files -z | ForEach-Object { $_ -split "`0" } | Where-Object { $_ } | ForEach-Object { Remove-Item -LiteralPath $_ }
+git checkout -- .
+```
+
+### 2. Node.js와 pnpm
+
+```powershell
+# 공식 Node ZIP을 내려받아 SHA-256 대조 후 .tools/runtimes/node-24.22.1에 설치
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-node-runtime.ps1 -Download
+# 현재 터미널에서 프로젝트 Node 사용
 $env:PATH = (Resolve-Path '.tools/runtimes/node-24.22.1').Path + ';' + $env:PATH
-npm exec --yes --package=pnpm@11.25.0 -- pnpm install --frozen-lockfile
-# 선택: FFmpeg 개발 모듈 설치·검증
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native-modules.ps1 -Download
-# Windows 이미지/영상/음성: 검증된 LLVM 도구로 필수 Job 실행기를 로컬 빌드(다운로드 없음)
+# pnpm을 .tools/pnpm에 설치(IntelliJ 패키지 관리자 경로로도 사용)
+npm install --prefix .tools/pnpm --no-save --no-package-lock --no-audit --no-fund pnpm@11.25.0
+$env:PATH = (Resolve-Path '.tools/pnpm/node_modules/.bin').Path + ';' + $env:PATH
+# lockfile 그대로 의존성 설치
+pnpm install --frozen-lockfile
+```
+
+새 터미널을 열 때마다 두 `$env:PATH` 줄을 다시 실행합니다. pnpm 업데이트 안내가 나와도 lockfile 고정 버전인 11.25.0을 유지합니다.
+
+### 3. LLVM-MinGW 컴파일러
+
+네이티브 실행기 빌드에 쓰는 고정 컴파일러입니다. 빌드 스크립트는 자동으로 내려받지 않으므로 직접 설치합니다. URL과 해시는 [build-inputs.json](native/imagegate-converter/build-inputs.json)과 같습니다(약 191MB).
+
+```powershell
+$name = 'llvm-mingw-20261104-ucrt-x86_64'
+$zip = ".tools/module-downloads/$name.zip"
+New-Item -ItemType Directory -Force .tools/module-downloads, .tools/native-toolchain | Out-Null
+Invoke-WebRequest -UseBasicParsing "https://github.com/mstorsjo/llvm-mingw/releases/download/20261104/$name.zip" -OutFile $zip
+if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne '552191b5754c49a5a20723276a6fc56541ea1922c4c50b7b669022333fc1b40f') { throw 'SHA-256 불일치' }
+Expand-Archive $zip .tools/native-toolchain
+```
+
+`.tools/native-toolchain/llvm-mingw-20261104-ucrt-x86_64/bin/x86_64-w64-mingw32-clang++.exe --version`이 clang 23.1.5를 표시하면 됩니다.
+
+### 4. Windows Job 실행기
+
+이미지·영상·음성 처리 프로세스를 Windows Job으로 제한하는 필수 실행기입니다. 없으면 이미지 API가 `PROCESS_JOB_CONFIGURATION_REQUIRED`로 거절합니다.
+
+```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-process-job.ps1 -TestTools
 ```
 
-IntelliJ에서는 **SimpleImgViewer** 실행 구성 하나를 사용합니다. [.run/SimpleImgViewer.run.xml](.run/SimpleImgViewer.run.xml)은 포터블 Node로 `scripts/dev.mjs`를 실행하며 React를 빌드한 뒤8080 서버 하나를 시작합니다. Node.js 플러그인이 필요하며, IDE에 예전 구성이 남으면 프로젝트를 다시 엽니다.
+`.tools/process-job/<소스 SHA-256>`에 빌드하고 개발 설정이 읽는 `build/process-job/launcher.json`을 만듭니다. `native/process-job/main.cpp`가 바뀌면 다시 실행합니다. 자세한 내용은 [Job 실행기](native/process-job/README.md)를 참고하세요.
+
+### 5. FFmpeg 개발 모듈
+
+영상·음성 재생에 필요합니다. 이미지 뷰어만 쓸 때는 생략할 수 있습니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native-modules.ps1 -Download
+# 설치 후 재검증
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-native-modules.ps1 -VerifyOnly
+```
+
+FFmpeg8.1.3 LGPL shared와 점검용 libvips8.18.7 CLI를 `.tools/modules`에 설치하고 개발 실행이 읽는 `build/native-modules/imagegate.native.yml`을 만듭니다. 서버의 이미지 처리는 이 CLI가 아니라 고정된 sharp를 사용합니다. 자세한 내용은 [모듈 설치](docs/NATIVE_MODULE_INSTALLATION.md)를 참고하세요.
+
+### 6. 설치 확인
+
+```powershell
+node scripts/build-web.mjs                    # 라이선스 기준선 passed:true 후 React 빌드
+node --test "backend/test/**/*.test.mjs"      # 네이티브 시험 16개는 건너뜀
+$env:SIV_NATIVE_TESTS = '1'; node --test "backend/test/**/*.test.mjs"; Remove-Item Env:SIV_NATIVE_TESTS   # 4·5단계까지 마친 경우 전체 실행
+```
+
+2026-11-17 새 클론에서 위 순서로 설치해 기본 129개 통과·16개 건너뜀, `SIV_NATIVE_TESTS=1` 145개 전체 통과를 확인했습니다.
+
+### 7. IntelliJ 설정
+
+Node.js 플러그인이 필요합니다. 설치를 마친 뒤 프로젝트를 엽니다. `.idea`는 Git에서 제외되므로 PC마다 한 번 설정합니다.
+
+- **Settings → Languages & Frameworks → Node.js**
+  - Node interpreter: `<저장소>/.tools/runtimes/node-24.22.1/node.exe` (버전 24.22.1 표시 확인)
+  - Package manager: `<저장소>/.tools/pnpm/node_modules/pnpm` (기본값 `pnpm`은 PATH에 없어 동작하지 않음)
+- 처음 열 때 IntelliJ가 Java 모듈·JDK를 자동으로 잡을 수 있습니다. 이 프로젝트는 Java를 사용하지 않으므로 JDK 선택 안내는 무시합니다. `.tools`, `.runtime`, `build`, `dist`는 **Mark Directory as → Excluded**로 인덱싱에서 제외하면 가볍습니다.
+
+## 실행
+
+IntelliJ에서는 **SimpleImgViewer** 실행 구성 하나를 사용합니다. [.run/SimpleImgViewer.run.xml](.run/SimpleImgViewer.run.xml)은 포터블 Node로 `scripts/dev.mjs`를 실행하며 React를 빌드한 뒤8080 서버 하나를 시작합니다. 네이티브 모듈 설정은 시작할 때 읽으므로 4·5단계 이후에는 실행 중인 서버를 다시 시작합니다. IDE에 예전 구성이 남으면 프로젝트를 다시 엽니다.
 
 포터블 Node는 시스템 PATH에 자동 등록되지 않습니다. IntelliJ에서 `Specify a Node.js runtime correctly` 오류가 보이면 **Run → Edit Configurations → SimpleImgViewer → Node runtime → …**에서 프로젝트의 `.tools/runtimes/node-24.22.1/node.exe`를 선택하고 버전 `24.22.1`이 표시되는지 확인합니다. 공유 실행 XML의 `path-to-node`는 IDE가 저장한 확장자 없는 `…/node` 형태를 유지합니다. 여기에 `.exe`를 직접 덧붙이면 일부 IntelliJ 버전에서 `node.exe.exe`로 해석됩니다.
 
-터미널에서도 다음처럼 개발 실행할 수 있습니다.
+터미널에서도 다음처럼 개발 실행할 수 있습니다(설치 2단계의 `$env:PATH` 설정 후).
 
 ```powershell
 node scripts/dev.mjs
