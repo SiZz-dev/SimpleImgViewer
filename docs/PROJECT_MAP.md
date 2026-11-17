@@ -129,12 +129,12 @@ flowchart LR
 | GET `/api/v1/media/:id/sources/:sourceId/{content,thumbnail}` | media/routes | `MediaService.source` → PNG `sendFile` | image | `<img src>`·썸네일·돋보기 |
 | GET/POST `/api/v1/media/:id/playback` | playback/routes | `PlaybackService.prepare` (5.6) | `playback.enabled`, video/audio | `select`(POST) |
 | GET/HEAD `/api/v1/media/:id/playback/sources/:sourceId/content` | playback/routes | `PlaybackService.source` → 단일 Range 스트리밍 | `playback.enabled` | `<video>/<audio src>` |
-| GET `/api/v1/stamps` | editing/routes | `EditingService.listStamps` | – | 부트스트랩·업로드 후 |
+| GET `/api/v1/stamps` | editing/routes | `stampsEnabled` → `EditingService.listStamps` | stamps | 부트스트랩·업로드 후 |
 | POST `/api/v1/stamps` | editing/routes | `admission` → `receiveUpload(2MiB, 원본 아님)` → `createStamp` | stamps+stampUpload | `uploadStamp` |
-| GET `/api/v1/stamps/:id/content` | editing/routes | `EditingService.stamp` → PNG | (검사 없음) | 스탬프 `<img>` |
+| GET `/api/v1/stamps/:id/content` | editing/routes | `stampsEnabled` → `EditingService.stamp` → PNG | stamps | 스탬프 `<img>` |
 | GET `/api/v1/media/:id/pages/:page/annotations` | editing/routes | `EditingService.document` → `media.page` | – | `select` |
 | POST `…/annotations` · PUT/DELETE `…/annotations/:itemId` · POST `…/annotations/history/{undo,redo}` | editing/routes | `EditingService.change` (5.4) | annotations / stamps | `saveItem`, `historyChange` |
-| POST `…/pages/:page/crop` · `…/export` | editing/routes | `EditingService.export` (5.5) | cropAndSave / exportEdited | `download(false/true)` |
+| POST `…/pages/:page/crop` · `…/export` | editing/routes | `EditingService.export` (5.5) | cropAndSave / exportEdited (+brightness·rotation·annotations·stamps) | `download(false/true)` |
 | GET `/viewer/resources/TestFiles/*` | application | 개발 모드 + `.runtime/development/url-files/TestFiles` | development | URL 수신 시험용 |
 | GET `/actuator/health` | application | `{status:'UP'}` | – | – |
 
@@ -223,7 +223,8 @@ EditingService.change(id, page, actor, body, action, itemId)
 App.download(edited) → POST …/crop | …/export  {mediaVersion, coordinateSpaceId, expectedRevision, x,y,width,height, brightness, rotation, includeAnnotations}
 EditingService.export → ImageEngine.withRuntime → exportWithRuntime
   features(cropAndSave | exportEdited) → document() → 좌표/크기(≤8MP) 검증 → edited면 revision 검사
-  items(스탬프는 파일 경로 결합, 합계 ≤16MP) → ImageEngine.run({operation:'export', crop, brightness, rotation, items})
+  밝기≠100이면 features.brightness, 회전≠0이면 features.rotation 필요(아니면 403; crop은 항상 100/0)
+  items: 꺼진 기능(annotations/stamps) 항목 제외 → 스탬프는 파일 경로 결합, 합계 ≤16MP → ImageEngine.run({operation:'export', crop, brightness, rotation, items})
     image-worker: rotate(EXIF) → modulate(brightness) → composite(메모 SVG/스탬프) → extract(crop) → rotate(rotation)
     메모 SVG: 고정 템플릿 + escape, LPAC에서는 승인 폰트(Noto Sans CJK KR) 필수
   → 원본/버전/runtime 재검증 → PNG 바이트 응답(attachment)
@@ -247,6 +248,7 @@ GET …/playback/sources/:sourceId/content → PlaybackService.source → 크기
 ```
 
 - `playback/util/ffmpeg-profile.mjs`는 **PlaybackService, conversion/util/lpac-bindings(mediaLpacBinding), native lpac-media 요청 인코딩**이 공유합니다.
+- 화면 `App.jsx`의 `mediaProps`가 `<video>`·`<audio>` 공통 처리를 담당합니다. 세션 시작 시간 적용(`onLoadedMetadata`), 탐색 제한(`lastTime` 기준 0.5초 초과 이동 되돌림), 배속 제한(`controlsList`, `onRateChange`)을 여기서 처리합니다. 서버 Range 전달은 이 설정과 무관합니다.
 
 ### 5.7 뷰어 세션·진입 URL
 
@@ -283,7 +285,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | `storage` | MediaStore, UploadCapacity, settings(dist·runtime·lpac 루트 겹침 검사) | 6절 레이아웃 |
 | `upload` | receiveUpload, store.register/verify, UploadCapacity, bootstrap limits | 화면 오류 메시지 |
 | `processing` | ImageEngine(동시성/timeout/maxPixels), WindowsJobRunner(Job 한도), MediaService(previewEdge → sourceId) | previewEdge 변경 시 캐시 전체 무효 |
-| `features` | store(mediaType), editing, viewer bootstrap, lpac-factory, App.jsx 버튼 활성화 | **brightness·seek·playbackSpeed 플래그는 미적용** |
+| `features` | store(mediaType), editing(주석·스탬프·반출의 밝기/회전), editing/routes(스탬프 조회), viewer bootstrap, lpac-factory, App.jsx(버튼 활성화, 주석 표시 필터, `mediaProps`의 탐색·배속 제한) | zoom·magnifier·seek·playbackSpeed는 화면 전용 제한(서버 강제 아님) |
 | `remote` | importRemote, bootstrap `remoteImport` | `scripts/create-url-sample*` |
 | `playback` | PlaybackService, WindowsJobRunner(playback) | `scripts/install-native-modules.ps1` |
 | `sessions` / `temporary` / `cache` | ViewerSessions / TemporaryFiles·WorkDirectories / CacheStorage | 각 회수·정리 테스트 |
@@ -321,7 +323,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 
 | 파일 | 주 대상 | 비고 |
 | --- | --- | --- |
-| server.test.mjs (18) | application 전체 HTTP: 업로드·URL·페이지·주석·반출·세션·보안 헤더·CSRF | 통합 회귀의 중심 |
+| server.test.mjs (20) | application 전체 HTTP: 업로드·URL·페이지·주석·반출·세션·보안 헤더·CSRF·기능 설정 | 통합 회귀의 중심 |
 | cache-storage.test.mjs (6) | CacheStorage | 루트에 있음(기능 폴더 미정리) |
 | image-job.test.mjs (4) | ImageEngine + Job 실행기 | 네이티브 필요 |
 | playback-native.test.mjs | 실제 FFmpeg 재생 | `SIV_NATIVE_TESTS=1` |
@@ -331,7 +333,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | playback/service/lpac-media-transport | LpacMediaTransport | |
 | system/config/* | lpac-settings, runtime-verifier-settings(미커밋) | |
 
-- 2026-11-17 실행 결과: 기본 140개 중 124 통과·16 건너뜀, `SIV_NATIVE_TESTS=1`은 **140/140 통과**(약 27초).
+- 2026-11-17 실행 결과: `SIV_NATIVE_TESTS=1`에서 **142/142 통과**(약 26초). 환경 변수가 없으면 네이티브 16개를 건너뜁니다.
 - 화면(React) 단위 테스트는 없습니다. 화면 검증은 `scripts/test-node-viewer.mjs`(Playwright + Chrome, `IMAGEGATE_NODE_MODULES`/`IMAGEGATE_BROWSER` 환경 변수 필요, Playwright는 의존성에 없음)뿐입니다.
 
 ### 9.2 scripts 분류

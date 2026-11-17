@@ -68,9 +68,12 @@ export class EditingService {
     requireThat([body.x,body.y,body.width,body.height].every(Number.isFinite)&&x>=0&&y>=0&&width>=1&&height>=1&&x+width<=info.coordinateWidth&&y+height<=info.coordinateHeight&&width*height<=8000000,400,'INVALID_CROP');
     requireThat(!edited||body.expectedRevision===doc.revision,409,'EDIT_CONFLICT');
     const brightness=edited?body.brightness??100:100,rotation=edited?body.rotation??0:0;requireThat(finite(brightness,25,200)&&[0,90,180,270].includes(rotation),400,'INVALID_EDIT');
+    requireThat((brightness===100||this.store.config.features.brightness)&&(rotation===0||this.store.config.features.rotation),403,'FEATURE_DISABLED');
     const record=await this.store.require(id,actor);const work=await this.store.work.create();
     try{
-      const items=[];if(edited&&body.includeAnnotations)for(const item of doc.items)items.push(item.type==='stamp'?{...item,file:(await this.stamp(item.stampId,actor)).file}:item);
+      // Items of a disabled feature are kept in the document but never composed.
+      const permitted=item=>this.store.config.features[item.type==='stamp'?'stamps':'annotations'];
+      const items=[];if(edited&&body.includeAnnotations)for(const item of doc.items.filter(permitted))items.push(item.type==='stamp'?{...item,file:(await this.stamp(item.stampId,actor)).file}:item);
       requireThat(items.reduce((total,item)=>total+item.width*item.height,0)<=16000000,413,'EDIT_PIXEL_LIMIT');
       await this.media.images.run({operation:'export',input:this.store.file(record),page,output:path.join(work,'export.png'),crop:{left:x,top:y,width,height},brightness,rotation,items},{runtime});
       const current=await this.store.require(id,actor);requireThat(current.mediaVersion===record.mediaVersion,409,'MEDIA_CHANGED');await this.store.verify(record);if(runtime)await runtime.verify();return await fs.readFile(path.join(work,'export.png'));

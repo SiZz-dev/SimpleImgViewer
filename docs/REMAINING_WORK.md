@@ -11,11 +11,11 @@
 | 확인 | 결과 |
 | --- | --- |
 | Node 테스트 (기본) | 140개 중 124 통과, 16 건너뜀(네이티브), 실패 0 |
-| Node 테스트 (`SIV_NATIVE_TESTS=1`) | **140/140 통과**, 약 27초 |
+| Node 테스트 (`SIV_NATIVE_TESTS=1`) | **140/140 통과**, 약 27초 → 11-17 기능 설정 수정 후 **142/142 통과** |
 | React 빌드 (`scripts/build-web.mjs`) | 성공, 라이선스 기준선 npm 90개 통과, `distributionReady=false` |
 | API 스모크 (임시 저장소, 개발 모드) | health·bootstrap·업로드 201·페이지 200(최초 349ms / 캐시 12ms)·미리보기/썸네일 200·메모 201·편집본 반출 200·CSRF 누락 403 |
-| 실제 브라우저 시나리오 | 이번에는 실행하지 않음(Playwright 경로 환경 변수 필요). 이전 에이전트 기록상 Chrome 13개 통과 |
-| Git | `main`, 마지막 커밋 `2bd6a6a`(11-16). **미커밋 변경 13개 + 새 파일 4개 있음**(아래 1절) |
+| 실제 브라우저 시나리오 | Playwright 시나리오(`scripts/test-node-viewer.mjs`)는 실행하지 않음. 11-17 기능 설정 수정은 앱 내장 브라우저로 직접 확인(4절 완료 기록) |
+| Git | 11-17 미커밋 작업과 이 문서를 `f88d8e0`·`80a806b`로 커밋·푸시함 |
 
 ---
 
@@ -25,7 +25,7 @@
 
 - 변경: `managed-runtimes.mjs`(worker pool 소유·종료 대기), `runtime-verifier-pool.mjs`, `settings.mjs`(`runtimeVersions.verification` 검증·병합), `application.mjs`(중복 close 방지·listen 실패 정리), example YAML, README/docs, 측정 스크립트 4개
 - 새 파일: `backend/test/conversion/service/managed-verifier.test.mjs`, `backend/test/system/config/runtime-verifier-settings.test.mjs`, `docs/RUNTIME_VERIFIER_CONFIGURATION.md`, `scripts/test-runtime-verifier-installation.mjs`
-- [ ] 내용 확인 후 커밋 (이번 문서 2개 포함 여부도 결정)
+- [x] 내용 확인 후 커밋 — 2026-11-17 `f88d8e0`(worker 연결)·`80a806b`(이 문서) 커밋, main 푸시
 
 ---
 
@@ -71,14 +71,33 @@
 | # | 항목 | 근거 | 제안 |
 | --- | --- | --- | --- |
 | B1 | **개발 모드가 아니면 앱을 쓸 수 없음.** `security()`는 운영 모드에서 무조건 401, 개발 모드는 모든 접속자를 같은 `dev-admin`으로 처리하고 `store.require`가 소유자 검사를 건너뜀 | security/service/session.mjs, media/repository/store.mjs:require | 개인용 범위에 맞는 최소 인증(로컬 계정 또는 토큰) 결정 필요 → 5절 D1 |
-| B2 | **기능 플래그 일부가 적용되지 않음**: `brightness`, `videoSeek`, `audioSeek`, `videoPlaybackSpeed`, `audioPlaybackSpeed`는 서버·화면 어디서도 읽지 않음. 밝기 슬라이더·배속 선택·탐색 막대가 설정과 무관하게 동작하고, 반출 시 밝기도 그대로 적용 | `grep features.` 결과, App.jsx 도구 패널, editing.mjs:exportWithRuntime | 화면 비활성화 + 서버 반출 검증 추가 |
-| B3 | 스탬프 이미지 조회(`GET /stamps/:id/content`)가 `features.stamps`를 확인하지 않음 | editing/controller/routes.mjs | 다른 스탬프 경로와 동일 검사 |
+| ~~B2~~ | ✅ 2026-11-17 완료. 기능 플래그 `brightness`, `videoSeek`, `audioSeek`, `videoPlaybackSpeed`, `audioPlaybackSpeed`와 서버 반출의 `rotation`이 적용되지 않던 문제 | editing.mjs:exportWithRuntime, App.jsx | 아래 완료 기록 |
+| ~~B3~~ | ✅ 2026-11-17 완료. 스탬프 목록·이미지 조회, 편집본 합성, 화면 표시·업로드 버튼이 `features.stamps`를 확인하지 않던 문제 | editing/controller/routes.mjs, editing.mjs, App.jsx | 아래 완료 기록 |
 | B4 | **미디어 삭제·목록 기능 없음.** 원본은 자동 삭제되지 않고 삭제 API도 없어 원본 한도(기본 10GiB)에 도달하면 이후 업로드가 507. 편집 문서·스탬프도 정리 수단 없음 | media/routes.mjs, UploadCapacity | 소유자 삭제 API + 연관 캐시/편집 문서 정리, 파일 목록 화면 |
 | B5 | 실행 중 캐시 축출 없음 — 캐시 합계가 2GiB에 닿으면 재시작 전까지 새 미리보기/재생본이 507 (의도된 설계로 문서화됨) | conversion/service/cache-storage.mjs:publish | 개인용이면 실행 중 LRU 축출 검토(활성 읽기 보호 필요) |
-| B6 | 여러 파일 업로드 중 하나가 실패하면 이미 올라간 파일이 목록·세션에 반영되지 않음(예외로 `setFiles` 전에 중단) | App.jsx:openFiles | 성공분 반영 후 실패 안내 |
+| ~~B6~~ | ✅ 2026-11-17 완료. 여러 파일 업로드 중 하나가 실패하면 이미 올라간 파일이 목록·세션에 반영되지 않던 문제 | App.jsx:openFiles | 아래 완료 기록 |
 | B7 | 세션이 처음 생성 시점만 저장 — 다른 파일/페이지를 보다가 새로고침하면 첫 파일 1페이지로 돌아감 | App.jsx:select/sessionFor, viewer/service/sessions.mjs | 선택 변경 시 세션 갱신 API 또는 URL 반영 |
-| B8 | 세션의 `initialTimeSeconds`가 동영상에만 적용되고 음성에는 적용되지 않음 | App.jsx 재생 영역 | `<audio>`에도 `onLoadedMetadata` 처리 |
-| B9 | 화면 오류 메시지 매핑 누락: `INVALID_LAUNCH_URL`, `FILE_COUNT_LIMIT`, `UPLOAD_BUSY`, `PLAYBACK_QUEUE_FULL`, `MEDIA_CHANGED` 등은 "요청을 완료하지 못했습니다. CODE"로 노출 | App.jsx:messages | 자주 나오는 코드부터 한국어 안내 추가 |
+| ~~B8~~ | ✅ 2026-11-17 완료. 세션의 `initialTimeSeconds`가 음성에 적용되지 않던 문제 | App.jsx `mediaProps` | 아래 완료 기록 |
+| ~~B9~~ | ✅ 2026-11-17 완료. 오류 코드 12개 한국어 안내 추가 | App.jsx:messages | 새 오류 코드는 계속 함께 추가 |
+
+#### 2026-11-17 완료 기록 (B2·B3·B6·B8·B9)
+
+- 서버
+  - 편집본 반출에서 꺼진 밝기(≠100)·회전(≠0)을 403 `FEATURE_DISABLED`로 거절한다. 회전 미적용은 작업 중 추가로 발견했다. 자르기는 원래 100/0 고정이라 영향이 없다.
+  - 스탬프가 꺼지면 `GET /stamps`, `GET /stamps/:id/content`도 403으로 거절한다.
+  - 편집본 합성에서 꺼진 기능의 항목(스탬프/메모)을 뺀다. 저장된 편집 문서에서는 지우지 않으므로 설정을 다시 켜면 그대로 나타난다.
+- 화면
+  - 밝기가 꺼지면 슬라이더·초기화를 막는다.
+  - 배속이 꺼지면 배속 선택을 숨기고 `controlsList="noplaybackrate"`를 지정하며, 배속이 바뀌면 1×로 되돌린다.
+  - 탐색이 꺼지면 0.5초 넘는 위치 이동을 직전 위치로 되돌린다. 끝난 뒤 처음부터 다시 재생하는 것은 허용한다.
+  - 꺼진 기능의 주석 항목은 표시하지 않는다. 스탬프 업로드 버튼은 `stamps`도 확인한다(브라우저 확인 중 발견).
+  - 일부 업로드가 실패해도 성공한 파일을 목록·세션에 넣고, 파일 목록 위에 "N개 중 M개를 열지 못했습니다"를 표시한다.
+  - 시작 시간을 음성에도 적용한다.
+- **한계:** 탐색·배속은 화면에서만 제한한다. 재생 자체에 Range 요청이 필요해 서버가 막을 수 없으며, 보안 경계가 아니라 열람 편의 설정이다.
+- 검증
+  - `server.test.mjs`에 2개를 추가했다(밝기·회전 거절, 스탬프 조회 거절과 합성 제외의 픽셀 비교). 둘 다 이전 코드에서는 실패하고 수정 후에는 통과했다.
+  - 전체 142/142(`SIV_NATIVE_TESTS=1`), React 빌드·라이선스 기준선이 통과했다.
+  - 임시 저장소로 띄운 서버 2개(기본 / 기능 끔)에서 앱 내장 브라우저로 이미지·MP4·WAV의 컨트롤 상태, 탐색 되돌림, 배속 복귀, 음성 시작 1초, 일부 업로드 실패 안내를 확인했다. 콘솔 오류는 일부러 올린 실패 파일의 415 하나뿐이었다.
 
 ### P2 — 뷰잉 속도 (프로젝트 최우선 기준)
 
@@ -121,9 +140,9 @@
 
 ## 6. 권장 진행 순서
 
-1. 미커밋 작업 커밋(1절)
+1. ~~미커밋 작업 커밋(1절)~~ ✅ 11-17
 2. D1~D3 결정
-3. P1 중 작은 것부터: B2·B3·B6·B8·B9 (화면/서버 국소 수정, 기존 테스트로 회귀 확인 가능)
+3. ~~P1 중 작은 것부터: B2·B3·B6·B8·B9~~ ✅ 11-17
 4. B4 미디어 삭제·목록 + B7 세션 갱신
 5. C1~C3 뷰잉 속도 개선(결정 결과 반영, 측정 전후 비교)
 6. E1 화면 컴포넌트 분리(동작 변경 없이), E3·E5 정리

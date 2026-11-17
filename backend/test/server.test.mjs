@@ -147,6 +147,34 @@ test('uncompressed 24-bit BMP has bounded decoding and invalid page refusal',asy
 test('installation feature switches are enforced by the server',async t=>{
   const f=await fixture(t,{overrides:{features:{image:false}}});assert.equal((await f.upload()).status,403);
 });
+test('disabled brightness and rotation are refused for edited export but not for plain crop',async t=>{
+  const f=await fixture(t,{overrides:{features:{brightness:false,rotation:false}}});const media=await(await f.upload()).json();
+  const page=await(await f.request('/api/v1/media/'+media.mediaId+'/pages/1')).json();
+  const base={mediaVersion:media.mediaVersion,coordinateSpaceId:page.coordinateSpaceId,expectedRevision:0,x:0,y:0,width:40,height:30,includeAnnotations:true};
+  const send=(operation,json)=>f.request('/api/v1/media/'+media.mediaId+'/pages/1/'+operation,{method:'POST',json:{...base,...json}});
+  for(const json of [{brightness:120},{rotation:90}]){const r=await send('export',json);assert.equal(r.status,403);assert.equal((await r.json()).code,'FEATURE_DISABLED');}
+  assert.equal((await send('export',{brightness:100,rotation:0})).status,200);
+  // Plain crop never applies brightness/rotation, so stray values stay harmless.
+  assert.equal((await send('crop',{brightness:120,rotation:90})).status,200);
+});
+test('disabled stamps hide stamp content and are left out of the edited export',async t=>{
+  const f=await fixture(t);const media=await(await f.upload()).json();
+  const page=await(await f.request('/api/v1/media/'+media.mediaId+'/pages/1')).json();
+  const red=await sharp({create:{width:20,height:12,channels:3,background:'#e01010'}}).png().toBuffer();
+  const stamp=await(await f.upload(red,'red.png','/api/v1/stamps')).json();
+  const binding={mediaVersion:media.mediaVersion,coordinateSpaceId:page.coordinateSpaceId};
+  assert.equal((await f.request('/api/v1/media/'+media.mediaId+'/pages/1/annotations',{method:'POST',json:{...binding,expectedRevision:0,type:'stamp',stampId:stamp.stampId,x:0,y:0,width:20,height:12}})).status,201);
+  const pixel=async()=>{
+    const r=await f.request('/api/v1/media/'+media.mediaId+'/pages/1/export',{method:'POST',json:{...binding,expectedRevision:1,x:0,y:0,width:40,height:30,includeAnnotations:true}});assert.equal(r.status,200);
+    const {data,info}=await sharp(Buffer.from(await r.arrayBuffer())).raw().toBuffer({resolveWithObject:true});const at=(5*info.width+5)*info.channels;return [data[at],data[at+1],data[at+2]];
+  };
+  const [stampedRed,,stampedBlue]=await pixel();assert.ok(stampedRed>200&&stampedBlue<60);
+  f.application.config.features.stamps=false;
+  for(const url of ['/api/v1/stamps',stamp.url]){const r=await f.request(url);assert.equal(r.status,403);assert.equal((await r.json()).code,'FEATURE_DISABLED');}
+  const [plainRed,,plainBlue]=await pixel();assert.ok(plainRed<60&&plainBlue>180);
+  // The stored document keeps the stamp so re-enabling restores it.
+  const stored=await(await f.request('/api/v1/media/'+media.mediaId+'/pages/1/annotations')).json();assert.equal(stored.items.length,1);
+});
 test('unapproved Host headers and JSON arrays are rejected',async t=>{
   const f=await fixture(t);const status=await new Promise((resolve,reject)=>{
     const request=http.get(f.base+'/api/v1/viewer/bootstrap',{headers:{Host:'attacker.example'}},response=>{response.resume();resolve(response.statusCode);});request.on('error',reject);
