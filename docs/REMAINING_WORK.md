@@ -1,0 +1,130 @@
+# 남은 작업·보완 항목
+
+2026-11-17 작성. 기존 AI 에이전트의 작업 기록(README, NODE_REACT_MIGRATION.md, 각 주제 문서, Git 이력)과 이번 코드 분석·실행 결과를 합쳐 정리했습니다. 호출 구조와 영향 범위는 [PROJECT_MAP.md](PROJECT_MAP.md)를 같이 보세요.
+
+항목을 끝내면 체크하고 날짜·검증 결과를 한 줄 남깁니다. 새 항목은 해당 우선순위 표 끝에 추가합니다.
+
+---
+
+## 0. 현재 상태 (2026-11-17 확인)
+
+| 확인 | 결과 |
+| --- | --- |
+| Node 테스트 (기본) | 140개 중 124 통과, 16 건너뜀(네이티브), 실패 0 |
+| Node 테스트 (`SIV_NATIVE_TESTS=1`) | **140/140 통과**, 약 27초 |
+| React 빌드 (`scripts/build-web.mjs`) | 성공, 라이선스 기준선 npm 90개 통과, `distributionReady=false` |
+| API 스모크 (임시 저장소, 개발 모드) | health·bootstrap·업로드 201·페이지 200(최초 349ms / 캐시 12ms)·미리보기/썸네일 200·메모 201·편집본 반출 200·CSRF 누락 403 |
+| 실제 브라우저 시나리오 | 이번에는 실행하지 않음(Playwright 경로 환경 변수 필요). 이전 에이전트 기록상 Chrome 13개 통과 |
+| Git | `main`, 마지막 커밋 `2bd6a6a`(11-16). **미커밋 변경 13개 + 새 파일 4개 있음**(아래 1절) |
+
+---
+
+## 1. 바로 처리할 것 — 미커밋 작업
+
+이전 에이전트의 마지막 단계("런타임 검증 worker 설치 연결")가 커밋되지 않은 상태입니다. 위 테스트는 이 변경을 포함한 상태에서 통과했습니다.
+
+- 변경: `managed-runtimes.mjs`(worker pool 소유·종료 대기), `runtime-verifier-pool.mjs`, `settings.mjs`(`runtimeVersions.verification` 검증·병합), `application.mjs`(중복 close 방지·listen 실패 정리), example YAML, README/docs, 측정 스크립트 4개
+- 새 파일: `backend/test/conversion/service/managed-verifier.test.mjs`, `backend/test/system/config/runtime-verifier-settings.test.mjs`, `docs/RUNTIME_VERIFIER_CONFIGURATION.md`, `scripts/test-runtime-verifier-installation.mjs`
+- [ ] 내용 확인 후 커밋 (이번 문서 2개 포함 여부도 결정)
+
+---
+
+## 2. 기존 에이전트 작업 이력 요약
+
+| 시기 | 내용 |
+| --- | --- |
+| 2026-10 | Java/Spring Boot "ImageGate": img2tile·libvips 격리, 연계 권한 설계, 타일/미리보기/원본 정책 등 (DEVELOPMENT_PLAN.md 등, 현재는 기록용) |
+| 11-12 | 사용자 요청으로 Node.js + React 전환. 세션 만료 정리, 업로드 임시 파일 소유권(SQLite), 이미지 작업 수명/잠금, FFmpeg Windows Job 실행기, 캐시 기간/용량 관리, 원본 용량 예약 |
+| 11-13 | FFmpeg·이미지 워커 Job 메모리/CPU 제한, LPAC 선행 검증(Node/sharp/FFmpeg), 출력 채널 분리, 공유 런타임, 런타임 버전 카탈로그(게시/활성/회수), 서비스 버전 참조 연결, LPAC 입출력 바인딩 |
+| 11-16 | 이미지·FFmpeg LPAC 전송, 한글 메모 폰트, LPAC 작업 회수, `isolation.mode: lpac` 설치 선택, 무결성 검사 속도·응답성 측정, 검증 Worker Thread 후보·설치 연결(미커밋), Java/Gradle 소스 제거 후 커밋 |
+
+특징: 작업 대부분이 **보안 격리(Windows Job/LPAC)·런타임 무결성·회수 정책**에 집중되어 있고, 화면 기능은 11-12 이관 이후 거의 바뀌지 않았습니다. 문서에 "업무 자료", "조직별 quota", "SSO", "운영 인수" 같은 기업 운영 전제가 많습니다(→ 5절 결정 항목).
+
+---
+
+## 3. 기존 에이전트가 문서에 남긴 잔여 작업
+
+| # | 항목 | 출처 | 상태 |
+| --- | --- | --- | --- |
+| A1 | worker 검증 모드의 장시간 혼합 부하·종료 반복 검증(메모리·thread·참조 누적 여부) | RUNTIME_VERIFIER_CONFIGURATION.md, README | 다음 작업으로 지정됨 |
+| A2 | LPAC 최초 변환 지연 개선(동일 런타임 중앙값 Windows Job 1890ms vs LPAC 3863ms), 캐시 manifest 비용 | NODE_REACT_MIGRATION.md, LPAC_INSTALLATION_LOAD.md | 미착수 |
+| A3 | 운영 인증(SSO)·파일별 권한 공급자 연동 — 현재 일반 실행은 API 전부 401 | README, NODE_REACT_MIGRATION.md | 미착수 |
+| A4 | HEIC/JPEG2000, 고해상도 타일(`features.tiles=false`), 다양한 TIFF/색공간/압축 표본 인수 | README, NODE_REACT_MIGRATION.md | 미착수 |
+| A5 | 다중 트랙·블랙박스 전용 데이터 | NODE_REACT_MIGRATION.md | 미착수 |
+| A6 | 회수 후 남기는 작업 잠금 메타데이터(`lease.sqlite`/`retired`) 보관 정책, 예전 `.playback-*` 폴더 정리 | README, NODE_REACT_MIGRATION.md | 미구현 |
+| A7 | 전체 디스크/조직별 quota, 변환 출력 용량 예약, 다중 서버·백업 일관성 | NODE_REACT_MIGRATION.md | 미착수 |
+| A8 | Java 시절 오프라인 유지보수·감사/지표·복구/성능 도구의 Node 이관, 기존 데이터(`data/`) 이관 | NODE_REACT_MIGRATION.md | 미착수(자동 이관 없음) |
+| A9 | 배포 검토: 전이 소스·고지·교체 조건, native CVE, 코덱 특허 (`distributionReady=false`) | README, NODE_REACT_MIGRATION.md | 미완료 |
+| A10 | 운영 Windows·서비스 계정 환경 인수, 다른 OS/아키텍처 라이선스 기준선 | README | 미완료 |
+| A11 | 설치 ZIP 생성 — AGENTS.md 규칙상 최종 기능·전체 검증 완료 후에만 | AGENTS.md | 보류(규칙) |
+| A12 | 클라이언트 IP 허용 목록 | README | **사용자 요청으로 보류** |
+| A13 | img2tile 담당 팀 수정본 수령 후 재검토 (Java 시절 경로, 현재 Node 경로는 img2tile 미사용) | DEVELOPMENT_PLAN.md | 외부 대기 |
+
+---
+
+## 4. 이번 분석에서 새로 찾은 보완 항목
+
+모두 코드에서 직접 확인했습니다. 파일:함수는 PROJECT_MAP.md 절 번호와 함께 적었습니다.
+
+### P1 — 기능 결함·정합성
+
+| # | 항목 | 근거 | 제안 |
+| --- | --- | --- | --- |
+| B1 | **개발 모드가 아니면 앱을 쓸 수 없음.** `security()`는 운영 모드에서 무조건 401, 개발 모드는 모든 접속자를 같은 `dev-admin`으로 처리하고 `store.require`가 소유자 검사를 건너뜀 | security/service/session.mjs, media/repository/store.mjs:require | 개인용 범위에 맞는 최소 인증(로컬 계정 또는 토큰) 결정 필요 → 5절 D1 |
+| B2 | **기능 플래그 일부가 적용되지 않음**: `brightness`, `videoSeek`, `audioSeek`, `videoPlaybackSpeed`, `audioPlaybackSpeed`는 서버·화면 어디서도 읽지 않음. 밝기 슬라이더·배속 선택·탐색 막대가 설정과 무관하게 동작하고, 반출 시 밝기도 그대로 적용 | `grep features.` 결과, App.jsx 도구 패널, editing.mjs:exportWithRuntime | 화면 비활성화 + 서버 반출 검증 추가 |
+| B3 | 스탬프 이미지 조회(`GET /stamps/:id/content`)가 `features.stamps`를 확인하지 않음 | editing/controller/routes.mjs | 다른 스탬프 경로와 동일 검사 |
+| B4 | **미디어 삭제·목록 기능 없음.** 원본은 자동 삭제되지 않고 삭제 API도 없어 원본 한도(기본 10GiB)에 도달하면 이후 업로드가 507. 편집 문서·스탬프도 정리 수단 없음 | media/routes.mjs, UploadCapacity | 소유자 삭제 API + 연관 캐시/편집 문서 정리, 파일 목록 화면 |
+| B5 | 실행 중 캐시 축출 없음 — 캐시 합계가 2GiB에 닿으면 재시작 전까지 새 미리보기/재생본이 507 (의도된 설계로 문서화됨) | conversion/service/cache-storage.mjs:publish | 개인용이면 실행 중 LRU 축출 검토(활성 읽기 보호 필요) |
+| B6 | 여러 파일 업로드 중 하나가 실패하면 이미 올라간 파일이 목록·세션에 반영되지 않음(예외로 `setFiles` 전에 중단) | App.jsx:openFiles | 성공분 반영 후 실패 안내 |
+| B7 | 세션이 처음 생성 시점만 저장 — 다른 파일/페이지를 보다가 새로고침하면 첫 파일 1페이지로 돌아감 | App.jsx:select/sessionFor, viewer/service/sessions.mjs | 선택 변경 시 세션 갱신 API 또는 URL 반영 |
+| B8 | 세션의 `initialTimeSeconds`가 동영상에만 적용되고 음성에는 적용되지 않음 | App.jsx 재생 영역 | `<audio>`에도 `onLoadedMetadata` 처리 |
+| B9 | 화면 오류 메시지 매핑 누락: `INVALID_LAUNCH_URL`, `FILE_COUNT_LIMIT`, `UPLOAD_BUSY`, `PLAYBACK_QUEUE_FULL`, `MEDIA_CHANGED` 등은 "요청을 완료하지 못했습니다. CODE"로 노출 | App.jsx:messages | 자주 나오는 코드부터 한국어 안내 추가 |
+
+### P2 — 뷰잉 속도 (프로젝트 최우선 기준)
+
+| # | 항목 | 근거 | 제안 |
+| --- | --- | --- | --- |
+| C1 | **이미지 하나를 열 때 원본 전체 SHA-256을 최소 6회 재계산**(페이지 2 + 주석 조회 내부 페이지 2 + 미리보기 1 + 썸네일 1). 원본 최대 100MB라 큰 파일일수록 지연이 선형 증가 | media/service/media.mjs:pageWithRuntime/source, store.verify | (inode·size·mtime) 기반 검증 결과 재사용, 또는 캐시 적중 경로에서 검증 횟수 축소 — 무결성 정책과 맞바꿈이라 결정 필요(D3) |
+| C2 | 주석 조회(`GET …/annotations`)가 `media.page` 전체 경로를 다시 수행 | editing.mjs:document | 페이지 정보는 이미 받은 값 재사용 또는 가벼운 바인딩 확인 |
+| C3 | 모든 응답이 `Cache-Control: no-store` — 내용 주소형 URL(sourceId)인 미리보기·썸네일·재생본도 브라우저 캐시를 못 씀. 파일을 다시 선택할 때마다 재다운로드 | application.mjs 보안 헤더 미들웨어 | sourceId URL에 한해 `private, max-age, immutable` 검토(공용 PC 노출과 맞바꿈, D3) |
+| C4 | 미리보기가 1600px PNG 1장 — 확대 시 흐려지고, PNG라 용량이 큼. 고해상도는 타일 미구현(A4) | image-worker.mjs, settings `previewEdge` | WebP/JPEG 미리보기 또는 확대 시 고해상도 2단계 로드 검토 |
+| C5 | 여러 파일 업로드가 순차 처리, 썸네일은 파일을 선택해야 생성 | App.jsx:openFiles | 서버 admission(2건) 범위 안에서 병렬화, 썸네일 선생성 |
+
+### P3 — 구조·유지보수
+
+| # | 항목 | 근거 | 제안 |
+| --- | --- | --- | --- |
+| E1 | 화면 전체가 `App.jsx` 단일 컴포넌트(188줄·25KB, 상태 30여 개) | frontend/src/viewer/App.jsx | API 클라이언트·FileList·Viewport·ToolsPanel·PlaybackPanel·UrlDialog로 분리 (AGENTS.md "React 컴포넌트로 관리") |
+| E2 | 한 줄에 여러 문장을 넣는 압축 코드 스타일 → 리뷰·diff 추적이 어려움 | backend 전반 | 포매터 도입 여부 결정(D4). 도입 시 기능 변경과 별도 커밋 |
+| E3 | 테스트 9개가 `backend/test` 루트에 있음(cache-storage, image-job, playback-native, server, sessions, temporary-files, upload-capacity, windows-job, work-directories) | AGENTS.md "테스트도 대상 기능·역할 패키지에 맞춥니다" | 기능/역할 폴더로 이동 |
+| E4 | 한도 상수 중복: bootstrap `limits`와 각 서비스에 같은 숫자가 따로 있음(주석 200, 메모 500, 스탬프 100/2MiB, 자르기 8MP) | viewer/routes.mjs, editing.mjs, lpac-bindings.mjs | 기능별 상수 모듈로 단일화 |
+| E5 | 사용하지 않는 import: `integer`(application.mjs, editing.mjs), `randomUUID`·`privateRoot`(media.mjs), `constants`(files.mjs) | 정적 확인 | 정리 |
+| E6 | 개인 LAN IP `192.168.0.86`이 기본값·예제·화면 placeholder에 하드코딩 | settings.mjs, example yml, App.jsx | 기본값에서 제거, 설정으로만 지정 |
+| E7 | 서버가 현재 작업 디렉터리 기준 상대 경로에 의존(`dist`, `config/`, `build/`, `pnpm-lock.yaml`, `.runtime/`) | settings.mjs, application.mjs, image-engine.mjs | 저장소 루트 기준 절대 경로로 해석 |
+| E8 | 화면 단위 테스트 없음, 브라우저 시나리오는 외부 Playwright 경로 환경 변수 필요 | scripts/test-node-viewer.mjs | devDependency로 고정하거나 실행 안내를 스크립트화 |
+| E9 | 사용하지 않는 API: `GET /media/:id/status`, `POST /media/:id/previews`(페이지 API와 동일 동작) | media/routes.mjs | 유지 이유 없으면 제거 |
+| E10 | Java 잔재(로컬, Git 제외): `.gradle/`, `build/classes`, `build/resolvedMainClassName`, `.tools/gradle-*`, `config/imagegate.example.yml` | 디렉터리 확인 | 필요 없으면 정리(업무 자료·`data/`는 대상 아님) |
+| E11 | docs 90여 개 중 대부분이 Java 시절·단계 기록 | docs/ | PROJECT_MAP.md 10절 분류 유지, 필요 시 `docs/history/`로 이동 |
+
+---
+
+## 5. 사용자 결정이 필요한 항목
+
+| # | 결정 | 배경 |
+| --- | --- | --- |
+| D1 | 인증 방식: 개인용 최소 인증(로컬 계정/토큰) vs 기존 계획대로 SSO·연계 권한 | 지금은 `--dev` 실행에서만 사용 가능(B1, A3) |
+| D2 | 프로젝트 범위: 기업 운영 전제 항목(LPAC 운영 인수, 조직별 quota, 다중 서버, 감사/백업 도구 A7·A8·A10)을 계속 진행할지, 개인용 기능(B·C 항목) 우선으로 전환할지 | 이전 작업 대부분이 운영 격리·무결성에 집중됨 |
+| D3 | 무결성 검사 vs 뷰잉 속도: 요청마다 원본 전체 해시(C1), `no-store` 캐시 정책(C3) 완화 여부 | 최우선 기준 두 개(속도·보안)가 충돌하는 지점 |
+| D4 | 코드 포매터 도입 여부(E2) | 기존 압축 스타일 유지 여부 |
+
+---
+
+## 6. 권장 진행 순서
+
+1. 미커밋 작업 커밋(1절)
+2. D1~D3 결정
+3. P1 중 작은 것부터: B2·B3·B6·B8·B9 (화면/서버 국소 수정, 기존 테스트로 회귀 확인 가능)
+4. B4 미디어 삭제·목록 + B7 세션 갱신
+5. C1~C3 뷰잉 속도 개선(결정 결과 반영, 측정 전후 비교)
+6. E1 화면 컴포넌트 분리(동작 변경 없이), E3·E5 정리
+7. 기존 잔여 A1·A2 등은 D2 결정에 따라 진행
