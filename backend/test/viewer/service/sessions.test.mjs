@@ -4,8 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {ViewerSessions} from '../viewer/service/sessions.mjs';
-import {settings} from '../system/config/settings.mjs';
+import {ViewerSessions} from '../../../viewer/service/sessions.mjs';
+import {settings} from '../../../system/config/settings.mjs';
 
 async function fixture(t,policy={}){
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'siv-session-cleanup-'));

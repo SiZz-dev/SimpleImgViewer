@@ -1,36 +1,25 @@
-import React,{useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
+import {createApi} from './api.js';
+import {brief,describe} from './messages.js';
+import {clamp} from './format.js';
+import {incomingUrl,initialMedia,initialSession,invalidLaunch} from './launch.js';
+import Header from './components/Header.jsx';
+import FilePanel from './components/FilePanel.jsx';
+import Viewport from './components/Viewport.jsx';
+import PlaybackStage from './components/PlaybackStage.jsx';
+import ToolsPanel,{ImageTools,PlaybackInfo} from './components/ToolsPanel.jsx';
+import Lens from './components/Lens.jsx';
+import UrlDialog from './components/UrlDialog.jsx';
 
-const params=new URLSearchParams(location.search),fragment=new URLSearchParams(location.hash.slice(1));
-const incomingUrl=params.get('url')??fragment.get('url');
-const invalidLaunch=incomingUrl!==null&&(params.getAll('url').length+fragment.getAll('url').length!==1||params.has('sessionId')||params.has('mediaId'));
-const initialSession=params.get('sessionId'),initialMedia=params.get('mediaId');
-if(incomingUrl!==null)history.replaceState(null,'','/viewer');
-const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
-const bytes=n=>n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB';
-const messages={AUTHENTICATION_REQUIRED:'로그인이 필요합니다. 개발 환경은 SimpleImgViewer 실행 구성을 사용해 주세요.',CSRF_INVALID:'보안 세션이 만료됐습니다. 새로고침해 주세요.',
-  CACHE_CAPACITY_REACHED:'미리보기 저장 공간이 부족합니다. 관리자에게 공간 정리를 요청해 주세요. 원본 파일은 보관되어 있습니다.',
-  ORIGINAL_CAPACITY_REACHED:'원본 보관 공간의 한도에 도달했습니다. 관리자에게 문의해 주세요. 새 파일은 저장하지 않았습니다.',
-  INSUFFICIENT_STORAGE:'서버의 남은 저장 공간이 부족합니다. 관리자에게 문의해 주세요.',
-  RUNTIME_NOT_ACTIVE:'파일 처리 모듈이 준비되지 않았습니다. 관리자에게 문의해 주세요.',
-  RUNTIME_TAMPERED:'파일 처리 환경의 검증에 실패했습니다. 관리자에게 문의해 주세요.',
-  RUNTIME_EXECUTION_REJECTED:'파일 처리 모듈을 시작할 수 없습니다. 관리자에게 문의해 주세요.',
-  PLAYBACK_DISABLED:'재생 모듈이 비활성화되어 있습니다. FFmpeg 설치·설정을 확인해 주세요.',URL_NOT_ALLOWED:'허용된 파일 서버 주소와 경로인지 확인해 주세요.',URL_IMPORT_DISABLED:'URL 파일 열기가 설정에서 꺼져 있습니다.',
-  FILE_TOO_LARGE:'파일 크기가 허용 범위를 초과했습니다.',UNSUPPORTED_MEDIA:'현재 처리할 수 없는 파일 형식입니다.',CONVERSION_UNSUPPORTED_PROFILE:'디코더가 지원하지 않는 이미지 구성입니다.',EDIT_CONFLICT:'다른 변경이 저장되었습니다. 파일을 다시 선택해 최신 상태를 읽어 주세요.',PREVIEW_QUEUE_FULL:'이미지 처리 중입니다. 잠시 후 다시 시도해 주세요.',
-  INVALID_LAUNCH_URL:'열기 주소가 올바르지 않습니다. url은 하나만 지정하고 sessionId·mediaId와 함께 쓰지 마세요.',FILE_COUNT_LIMIT:'한 번에 열 수 있는 파일은 최대 100개입니다.',
-  UPLOAD_BUSY:'다른 파일을 올리는 중입니다. 잠시 후 다시 시도해 주세요.',PLAYBACK_QUEUE_FULL:'다른 재생 파일을 준비하는 중입니다. 잠시 후 다시 시도해 주세요.',
-  MEDIA_CHANGED:'파일이 변경되었습니다. 파일을 다시 선택해 주세요.',STALE_COORDINATES:'편집 정보가 현재 파일과 맞지 않습니다. 파일을 다시 선택해 주세요.',FEATURE_DISABLED:'이 기능은 설정에서 꺼져 있습니다.',
-  INVALID_MEDIA:'파일을 해석할 수 없거나 허용 범위(길이·해상도·채널 등)를 넘습니다.',INVALID_PLAYBACK_OUTPUT:'재생용 사본을 만들지 못했습니다.',PLAYBACK_FAILED:'재생 준비에 실패했습니다.',
-  PLAYBACK_TIMEOUT:'재생 준비 시간이 초과되었습니다.',MEDIA_BUSY:'파일을 처리하는 중이라 지금은 삭제할 수 없습니다. 잠시 후 다시 시도해 주세요.',
-  SESSION_NOT_FOUND:'세션이 만료되었거나 열 수 있는 파일이 없습니다. 파일을 다시 열어 주세요.',MEDIA_NOT_FOUND:'파일을 찾을 수 없습니다. 삭제되었거나 열 수 없는 파일입니다.',CONVERSION_TIMEOUT:'이미지 처리 시간이 초과되었습니다.'};
-function Icon({label,children,onClick,disabled=false,active=false}){return <button type="button" title={label} aria-label={label} className={'icon-button'+(active?' active':'')} disabled={disabled} onClick={onClick}>{children}</button>;}
-
+// Owns viewer state and workflows (select, upload/import, delete, edit, session position).
+// Components under ./components only render from props and report user actions back.
 export default function App(){
   const [bootstrap,setBootstrap]=useState(null),[files,setFiles]=useState([]),[current,setCurrent]=useState(null),[page,setPage]=useState(1),[info,setInfo]=useState(null),[playback,setPlayback]=useState(null);
   const [loading,setLoading]=useState(false),[error,setError]=useState(''),[theme,setTheme]=useState(()=>{try{return localStorage.getItem('simpleimgviewer.theme')==='light'?'light':'dark';}catch{return 'dark';}});
   const [left,setLeft]=useState(innerWidth>700),[right,setRight]=useState(innerWidth>1000),[zoom,setZoom]=useState(1),[angle,setAngle]=useState(0),[pan,setPan]=useState({x:0,y:0}),[brightness,setBrightness]=useState(100),[magnifier,setMagnifier]=useState(false),[lens,setLens]=useState(null);
   const [tool,setTool]=useState('move'),[document,setDocument]=useState(null),[selected,setSelected]=useState(null),[noteText,setNoteText]=useState('메모'),[stamps,setStamps]=useState([]),[stampId,setStampId]=useState(''),[crop,setCrop]=useState(null);
-  const [urlOpen,setUrlOpen]=useState(false),[url,setUrl]=useState(''),[notice,setNotice]=useState('');
-  const csrf=useRef(null),viewport=useRef(null),fileInput=useRef(null),stampInput=useRef(null),player=useRef(null),abort=useRef(null),drag=useRef(null),dialog=useRef(null);
+  const [urlOpen,setUrlOpen]=useState(false),[notice,setNotice]=useState('');
+  const csrf=useRef(null),viewport=useRef(null),fileInput=useRef(null),stampInput=useRef(null),player=useRef(null),abort=useRef(null),drag=useRef(null);
   const autoFit=useRef(true),lastTime=useRef(0),sessionRef=useRef(initialSession),currentRef=useRef(null);
   const imageReady=current?.mediaType==='image'&&info&&!loading,features=bootstrap?.features||{};
   // Seek/speed switches are viewer UX limits; Range delivery stays available for playback itself.
@@ -43,20 +32,13 @@ export default function App(){
     onTimeUpdate:e=>{if(!e.currentTarget.seeking)lastTime.current=e.currentTarget.currentTime;},
     onSeeking:e=>{const media=e.currentTarget;if(!seekAllowed&&Math.abs(media.currentTime-lastTime.current)>0.5)media.currentTime=lastTime.current;},
     onRateChange:e=>{if(!speedAllowed&&e.currentTarget.playbackRate!==1)e.currentTarget.playbackRate=1;}};
-  async function api(path,{method='GET',json,body,binary=false,signal,keepalive=false}={}){
-    const headers={};if(method!=='GET'){if(!csrf.current)throw Error('CSRF_INVALID');headers[csrf.current.headerName]=csrf.current.token;}
-    if(json!==undefined){headers['Content-Type']='application/json';body=JSON.stringify(json);}
-    const response=await fetch(path,{method,headers,body,credentials:'same-origin',cache:'no-store',redirect:'error',signal,keepalive});
-    if(!response.ok){let code='REQUEST_FAILED';try{code=(await response.json()).code||code;}catch{}throw Error(code);}
-    return binary?response.blob():response.status===204?null:response.json();
-  }
+  const api=useMemo(()=>createApi(csrf),[]);
   // Best effort: a failed position save must never interrupt viewing.
   function saveSession(state,keepalive=false){const id=sessionRef.current;if(!id||!csrf.current)return;api('/api/v1/viewer/sessions/'+id,{method:'PATCH',json:state,keepalive}).catch(()=>{});}
   const playbackPosition=media=>({selectedMediaId:currentRef.current.mediaId,initialPage:1,initialTimeSeconds:media.ended?0:clamp(Math.floor(media.currentTime||0),0,7200)});
-  const report=e=>{if(e.name!=='AbortError')setError(messages[e.message]||'요청을 완료하지 못했습니다. '+e.message);};
+  const report=e=>{if(e.name!=='AbortError')setError(describe(e.message));};
   const run=action=>Promise.resolve().then(action).catch(report);
   useEffect(()=>{globalThis.document.documentElement.dataset.theme=theme;try{localStorage.setItem('simpleimgviewer.theme',theme);}catch{}},[theme]);
-  useEffect(()=>{if(urlOpen){dialog.current?.showModal();}else dialog.current?.close();},[urlOpen]);
   useEffect(()=>{
     // A refresh while playing keeps the position; keepalive lets the request outlive the page.
     const hide=()=>{const media=player.current;if(media&&currentRef.current&&currentRef.current.mediaType!=='image'&&!media.paused)saveSession(playbackPosition(media),true);};
@@ -108,18 +90,18 @@ export default function App(){
       for(const file of chosen){const form=new FormData();form.append('file',file);try{added.push(await api('/api/v1/media',{method:'POST',body:form}));}catch(e){failed.push(e);}}
       if(!added.length)throw failed[0];
       const all=[...files,...added];setFiles(all);
-      if(failed.length){setLeft(true);setNotice(`${chosen.length}개 중 ${failed.length}개를 열지 못했습니다. `+(messages[failed[0].message]||failed[0].message));}
+      if(failed.length){setLeft(true);setNotice(`${chosen.length}개 중 ${failed.length}개를 열지 못했습니다. `+brief(failed[0].message));}
       await sessionFor(all);await select(added[0]);
     }finally{setLoading(false);}
   }
   async function openUrl(value){
-    setLoading(true);setError('');setNotice('');setUrlOpen(false);setUrl('');try{const file=await api('/api/v1/media/import-url',{method:'POST',json:{url:value}});const all=[...files,file];setFiles(all);await sessionFor(all);await select(file);}finally{setLoading(false);}
+    setLoading(true);setError('');setNotice('');setUrlOpen(false);try{const file=await api('/api/v1/media/import-url',{method:'POST',json:{url:value}});const all=[...files,file];setFiles(all);await sessionFor(all);await select(file);}finally{setLoading(false);}
   }
   async function removeFile(file){
     if(!confirm(`'${file.fileName}' 파일을 삭제할까요?\n원본과 이 파일의 메모·스탬프 배치가 함께 삭제되며 되돌릴 수 없습니다.`))return;
     setNotice('');
     // Delete failures (e.g. MEDIA_BUSY) are shown in the file panel so the current view stays usable.
-    try{await api('/api/v1/media/'+file.mediaId,{method:'DELETE'});}catch(e){setLeft(true);setNotice('삭제하지 못했습니다. '+(messages[e.message]||e.message));return;}
+    try{await api('/api/v1/media/'+file.mediaId,{method:'DELETE'});}catch(e){setLeft(true);setNotice('삭제하지 못했습니다. '+brief(e.message));return;}
     const index=files.findIndex(f=>f.mediaId===file.mediaId),remaining=files.filter(f=>f.mediaId!==file.mediaId);setFiles(remaining);
     if(remaining.length)await sessionFor(remaining).catch(()=>{});else{sessionRef.current=null;history.replaceState(null,'','/viewer');}
     if(currentRef.current?.mediaId!==file.mediaId)return;
@@ -169,61 +151,27 @@ export default function App(){
   }
   const visibleItems=(document?.items||[]).filter(item=>features[item.type==='stamp'?'stamps':'annotations']);
   const selectedItem=visibleItems.find(i=>i.id===selected);
-  const areaStyle=item=>({left:item.x/info.coordinateWidth*100+'%',top:item.y/info.coordinateHeight*100+'%',width:item.width/info.coordinateWidth*100+'%',height:item.height/info.coordinateHeight*100+'%'});
   return <div className={'app'+(!left?' list-collapsed':'')+(!right?' tools-collapsed':'')}>
-    <header className="header">
-      <Icon label={left?'파일 목록 접기':'파일 목록 펼치기'} onClick={()=>setLeft(!left)}>☰</Icon>
-      <a className="brand" href="/viewer"><span className="brand-mark">▧</span><span>SimpleImgViewer</span></a>
-      <div className="document-title"><strong>{current?.fileName||'미디어 뷰어'}</strong>{current&&<span className="type-badge">{current.mediaType.toUpperCase()}</span>}</div>
-      <div className="header-tools">
-        <Icon label="축소" disabled={!imageReady||!features.zoom} onClick={()=>manualZoom(z=>clamp(z/1.25,.01,16))}>−</Icon>
-        <button className="zoom-value" disabled={!imageReady||!features.zoom} onClick={()=>manualZoom(1)}>{Math.round(zoom*100)}%</button>
-        <Icon label="확대" disabled={!imageReady||!features.zoom} onClick={()=>manualZoom(z=>clamp(z*1.25,.01,16))}>+</Icon>
-        <Icon label="화면에 맞추기" disabled={!imageReady} onClick={()=>fit()}>⛶</Icon>
-        <Icon label="왼쪽으로 회전" disabled={!imageReady||!features.rotation} onClick={()=>setAngle((angle+270)%360)}>↶</Icon>
-        <Icon label="오른쪽으로 회전" disabled={!imageReady||!features.rotation} onClick={()=>setAngle((angle+90)%360)}>↷</Icon>
-        <Icon label="돋보기" active={magnifier} disabled={!imageReady||!features.magnifier} onClick={()=>{setMagnifier(!magnifier);setLens(null);}}>⌕</Icon>
-      </div>
-      <Icon label="도구 패널 전환" onClick={()=>setRight(!right)}>◫</Icon>
-      <Icon label={theme==='dark'?'라이트 테마로 전환':'다크 테마로 전환'} onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?'☼':'☾'}</Icon>
-      <button className="primary-button" disabled={!bootstrap||loading} onClick={()=>fileInput.current.click()}>＋ <span>파일 열기</span></button>
-      <Icon label="URL로 파일 열기" disabled={!bootstrap?.features.remoteImport||loading} onClick={()=>setUrlOpen(true)}>↗</Icon>
-      <input ref={fileInput} data-testid="file-input" type="file" multiple hidden onChange={event=>run(()=>openFiles(event))}/>
-    </header>
+    <Header left={left} onToggleLeft={()=>setLeft(!left)} onToggleRight={()=>setRight(!right)} current={current} imageReady={imageReady} features={features}
+      zoom={zoom} onZoom={manualZoom} onFit={()=>fit()} onRotate={delta=>setAngle((angle+delta)%360)} magnifier={magnifier} onToggleMagnifier={()=>{setMagnifier(!magnifier);setLens(null);}}
+      theme={theme} onToggleTheme={()=>setTheme(theme==='dark'?'light':'dark')} canOpen={!!bootstrap&&!loading} canImportUrl={!!bootstrap?.features.remoteImport&&!loading}
+      fileInput={fileInput} onFilesChosen={event=>run(()=>openFiles(event))} onOpenUrl={()=>setUrlOpen(true)}/>
     <main className="workspace">
-      {left&&<aside className="file-panel"><div className="panel-heading">파일 목록 <span className="count">{files.length}</span></div><p className={'list-caption'+(notice?' notice':'')} role={notice?'status':undefined}>{notice||'선택한 파일을 빠르게 살펴보세요'}</p><div className="file-list">
-        {files.map((file,index)=><div key={file.mediaId} className="file-item"><button className={'file-row'+(current?.mediaId===file.mediaId?' selected':'')} onClick={()=>run(()=>select(file))}>
-          <span className="file-thumb">{file.thumbnailUrl?<img src={file.thumbnailUrl} alt="" loading="lazy" decoding="async"/>:file.mediaType==='image'?'▧':file.mediaType==='video'?'▷':'♫'}<small>{String(index+1).padStart(2,'0')}</small></span><span className="file-description"><strong>{file.fileName}</strong><small>{file.originalMimeType.split('/')[1].toUpperCase()} · {bytes(file.sizeBytes)}</small><em>{file.mediaType==='image'?'이미지':file.mediaType==='video'?'동영상':'음성'}</em></span>
-        </button><button type="button" className="file-delete" title={file.fileName+' 삭제'} aria-label={file.fileName+' 삭제'} disabled={loading} onClick={()=>removeFile(file)}>×</button></div>)}{!files.length&&<div className="list-empty">▧<p>열린 파일이 없습니다</p></div>}
-      </div></aside>}
-      <section ref={viewport} className={'viewport tool-'+tool} aria-label="미디어 표시 영역" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onPointerLeave={()=>setLens(null)} onWheel={event=>{if(imageReady&&features.zoom)manualZoom(z=>clamp(z*(event.deltaY<0?1.1:1/1.1),.01,16));}}>
-        <div className="stage-heading"><span>SIMPLEIMGVIEWER WORKSPACE</span><span>{info?info.coordinateWidth+' × '+info.coordinateHeight+' · 미리보기':current?.originalMimeType||''}</span></div>
-        {imageReady&&<div className="surface" style={{width:info.displayWidth,height:info.displayHeight,transform:`translate(-50%,-50%) translate(${pan.x}px,${pan.y}px) scale(${zoom}) rotate(${angle}deg)`}}>
-          <img className="main-image" alt={current.fileName} src={info.source.url} draggable={false} style={{filter:`brightness(${brightness}%)`}}/>
-          <div className="annotation-overlay">{visibleItems.map(item=><div key={item.id} className={'annotation '+item.type+(selected===item.id?' selected':'')} style={areaStyle(item)} onPointerDown={event=>annotationDown(event,item)}>
-            {item.type==='note'?<span>{item.text}</span>:<img alt="사용자 스탬프" src={'/api/v1/stamps/'+item.stampId+'/content'} draggable={false}/>}
-          </div>)}{crop&&<div className="crop-selection" style={areaStyle(crop)}/>}</div>
-        </div>}
-        {playback&&!loading&&<div className="playback-stage" onPointerDown={event=>event.stopPropagation()}>{current.mediaType==='video'?<video key={current.mediaId} {...mediaProps}/>:<div className="audio-card"><div>♫</div><h2>{current.fileName}</h2><audio {...mediaProps}/></div>}</div>}
-        {(loading||error||!current)&&<div className={'stage-message'+(error?' error':'')} role="status"><div className="message-icon">{loading?'◌':error?'!':'▧'}</div><h2>{loading?'파일을 준비하고 있습니다':error?'파일을 표시할 수 없습니다':'파일을 열어 시작하세요'}</h2><p>{error||'이미지·동영상·음성을 안전하게 열람합니다.'}</p>{error&&current&&<button className="secondary-button" onClick={()=>run(()=>select(current,page))}>다시 시도</button>}</div>}
-        {imageReady&&<><div className="stage-note">드래그로 이동 · 휠로 확대/축소</div><nav className="page-navigation"><button disabled={page<=1} onClick={()=>run(()=>select(current,page-1))}>‹</button><span>페이지</span><strong>{page}</strong><span>/ {info.pageCount||'—'}</span><button disabled={page>=(info.pageCount||1)} onClick={()=>run(()=>select(current,page+1))}>›</button></nav></>}
-      </section>
-      {right&&<aside className="tools-panel"><div className="panel-heading">{current?.mediaType==='image'||!current?'이미지 도구':'재생 정보'}<small>조정 · 편집</small></div>
-        {playback?<div className="tool-section"><h3>재생 설정</h3>{speedAllowed&&<label>배속<select defaultValue="1" onChange={e=>{if(player.current)player.current.playbackRate=Number(e.target.value);}}>{[.5,1,1.25,1.5,2].map(n=><option key={n} value={n}>{n}×</option>)}</select></label>}{!seekAllowed&&<p>재생 위치 이동이 설정에서 꺼져 있습니다.</p>}<p>{playback.mimeType}</p><p>{playback.durationSeconds.toFixed(1)}초 · {bytes(playback.sizeBytes)}</p></div>:<>
-          <section className="tool-section"><h3>밝기 조절 <button disabled={!imageReady||!features.brightness} onClick={()=>setBrightness(100)}>초기화</button></h3><div className="range-label"><span>☼</span><span>{brightness}%</span></div><input aria-label="이미지 밝기" type="range" min="25" max="200" value={brightness} disabled={!imageReady||!features.brightness} onChange={e=>setBrightness(Number(e.target.value))}/><p>{features.brightness?'밝기 조절은 현재 이미지 보기에 적용됩니다.':'밝기 조절이 설정에서 꺼져 있습니다.'}</p></section>
-          <section className="tool-section"><h3>메모 · 스탬프</h3><div className="tool-grid"><button className={tool==='note'?'active':''} disabled={!imageReady||!features.annotations} onClick={()=>setTool(tool==='note'?'move':'note')}>▤<span>메모 추가</span></button><button className={tool==='stamp'?'active':''} disabled={!imageReady||!features.stamps} onClick={()=>setTool(tool==='stamp'?'move':'stamp')}>▣<span>스탬프 배치</span></button></div><p>도구를 선택한 뒤 이미지의 원하는 위치를 클릭하세요.</p>
-            <label>메모 내용<textarea aria-label="메모 내용" maxLength="500" value={noteText} onChange={e=>setNoteText(e.target.value)}/></label>
-            {selectedItem?.type==='note'&&<button disabled={!imageReady} onClick={()=>run(()=>saveItem({...selectedItem,text:noteText},'replace'))}>선택 메모 수정</button>}
-            {selectedItem&&<><div className="dimensions">{['width','height'].map(key=><label key={selectedItem.id+key+document.revision}>{key==='width'?'너비':'높이'}<input type="number" defaultValue={Math.round(selectedItem[key])} min="1" onBlur={event=>{const value=Number(event.target.value);const item={...selectedItem,[key]:value};if(value!==selectedItem[key]&&value>=1&&item.x+item.width<=info.coordinateWidth&&item.y+item.height<=info.coordinateHeight)run(()=>saveItem(item,'replace'));}}/></label>)}</div><button className="danger" onClick={()=>run(()=>saveItem(selectedItem,'delete'))}>선택 항목 삭제</button></>}
-            <div className="button-row"><button disabled={!imageReady||!document?.history.canUndo} onClick={()=>run(()=>historyChange('undo'))}>실행 취소</button><button disabled={!imageReady||!document?.history.canRedo} onClick={()=>run(()=>historyChange('redo'))}>다시 실행</button></div>
-            <h3>내 스탬프 <button disabled={!bootstrap||!features.stamps||!features.stampUpload} onClick={()=>stampInput.current.click()}>＋ 업로드</button></h3><input ref={stampInput} data-testid="stamp-input" type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={event=>run(()=>uploadStamp(event))}/><select aria-label="스탬프 선택" value={stampId} onChange={e=>setStampId(e.target.value)}><option value="">스탬프 선택</option>{stamps.map(s=><option key={s.stampId} value={s.stampId}>{s.fileName}</option>)}</select><p>이 페이지 메모·스탬프 {visibleItems.length}개</p>
-          </section>
-          <section className="tool-section"><h3>영역 자르기 · 저장</h3><button className={tool==='crop'?'active':''} disabled={!imageReady||!features.cropAndSave} onClick={()=>setTool(tool==='crop'?'move':'crop')}>⌗ 영역 선택</button><p>{crop?`${Math.round(crop.width)} × ${Math.round(crop.height)} 원본 픽셀`:'이미지를 드래그해 저장 영역을 선택하세요.'}</p><div className="button-row"><button disabled={!imageReady||!features.cropAndSave||!crop?.width} onClick={()=>run(()=>download(false))}>자르기 저장</button><button disabled={!imageReady||!features.exportEdited} onClick={()=>run(()=>download(true))}>편집본 저장</button></div>{crop&&<button onClick={()=>setCrop(null)}>영역 해제</button>}</section>
-          <section className="tool-section"><h3>파일 정보</h3><dl><dt>원본 형식</dt><dd>{current?.originalMimeType||'—'}</dd><dt>파일 크기</dt><dd>{current?bytes(current.sizeBytes):'—'}</dd><dt>원본 해상도</dt><dd>{info?`${info.coordinateWidth} × ${info.coordinateHeight}`:'—'}</dd></dl></section>
-        </>}
-      </aside>}
+      {left&&<FilePanel files={files} current={current} notice={notice} loading={loading} onSelect={file=>run(()=>select(file))} onRemove={removeFile}/>}
+      <Viewport viewportRef={viewport} tool={tool} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={()=>setLens(null)}
+        onWheel={event=>{if(imageReady&&features.zoom)manualZoom(z=>clamp(z*(event.deltaY<0?1.1:1/1.1),.01,16));}}
+        current={current} info={info} imageReady={imageReady} pan={pan} zoom={zoom} angle={angle} brightness={brightness} items={visibleItems} selected={selected} crop={crop} onAnnotationDown={annotationDown}
+        loading={loading} error={error} onRetry={()=>run(()=>select(current,page))} page={page} onPage={next=>run(()=>select(current,next))}>
+        {playback&&!loading&&<PlaybackStage current={current} mediaProps={mediaProps}/>}
+      </Viewport>
+      {right&&<ToolsPanel current={current}>{playback?<PlaybackInfo playback={playback} player={player} speedAllowed={speedAllowed} seekAllowed={seekAllowed}/>:
+        <ImageTools ready={!!bootstrap} imageReady={imageReady} features={features} current={current} info={info} brightness={brightness} onBrightness={setBrightness} tool={tool} onTool={setTool}
+          noteText={noteText} onNoteText={setNoteText} selectedItem={selectedItem} revision={document?.revision} history={document?.history} itemCount={visibleItems.length}
+          onSaveItem={(item,action)=>run(()=>saveItem(item,action))} onHistory={direction=>run(()=>historyChange(direction))}
+          stamps={stamps} stampId={stampId} onStampId={setStampId} stampInput={stampInput} onStampChosen={event=>run(()=>uploadStamp(event))}
+          crop={crop} onClearCrop={()=>setCrop(null)} onDownload={edited=>run(()=>download(edited))}/>}</ToolsPanel>}
     </main>
-    {magnifier&&lens&&imageReady&&<div className="lens" style={{left:lens.x+20,top:lens.y+20,backgroundImage:`url("${info.source.url}")`,backgroundSize:`${info.displayWidth*2}px ${info.displayHeight*2}px`,backgroundPosition:`${90-lens.point.x/info.coordinateWidth*info.displayWidth*2}px ${90-lens.point.y/info.coordinateHeight*info.displayHeight*2}px`,filter:`brightness(${brightness}%)`}}/>}
-    <dialog ref={dialog} className="url-dialog" onCancel={()=>{setUrlOpen(false);setUrl('');}}><form onSubmit={event=>{event.preventDefault();run(()=>openUrl(url));}}><h2>URL로 파일 열기</h2><p>설정에서 허용한 파일 서버의 주소를 입력하세요.</p><input aria-label="파일 URL" type="url" required maxLength="8192" value={url} onChange={e=>setUrl(e.target.value)} placeholder="http://192.168.0.86:8080/viewer/resources/TestFiles/sample.jpg"/><div className="button-row"><button type="button" onClick={()=>{setUrlOpen(false);setUrl('');}}>취소</button><button className="primary-button" type="submit">파일 열기</button></div></form></dialog>
+    {magnifier&&lens&&imageReady&&<Lens lens={lens} info={info} brightness={brightness}/>}
+    <UrlDialog open={urlOpen} onClose={()=>setUrlOpen(false)} onSubmit={value=>run(()=>openUrl(value))}/>
   </div>;
 }

@@ -7,7 +7,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import http from 'node:http';
 import {settings} from '../config/settings.mjs';
-import {ApiError,requireThat,integer} from '../util/errors.mjs';
+import {ApiError,requireThat} from '../util/errors.mjs';
 import {security} from '../../security/service/session.mjs';
 import {MediaStore} from '../../media/repository/store.mjs';
 import {MediaService} from '../../media/service/media.mjs';

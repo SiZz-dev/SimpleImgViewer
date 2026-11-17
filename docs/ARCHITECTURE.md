@@ -25,6 +25,6 @@ LPAC 작업 바인딩은 conversion/util/lpac-bindings가 호스트 입출력과
 
 backend는 기능(system/security/media/viewer/editing/conversion/playback)을 먼저 나누고 각 기능의 controller/service/repository/util/config/domain/exception 역할을 구분한다. controller는 요청·응답, service는 업무·정책·수명, repository는 영속 상태, util은 기술 보조, config는 설치 설정을 담당한다. 없는 역할을 위해 빈 디렉터리나 가짜 기능을 만들지 않는다. 테스트도 대상 기능·역할 구조에 맞춘다.
 
-frontend/src/viewer는 React 화면과 편집 상태를 담당한다. system/controller.application이 서버와 기능을 조립하고 API는 각 기능 controller가 등록한다. 설치 스키마는 config/simpleimgviewer.example.yml이며 실제 설정·업무 데이터·네이티브 바이너리는 Git에서 제외한다.
+frontend/src/viewer는 React 화면과 편집 상태를 담당한다. App.jsx가 상태·업무 흐름을 갖고, components/는 props만 받아 그리는 화면 조각이다. api.js(서버 호출·CSRF)·messages.js(오류 문구)·format.js·launch.js(진입 주소)는 화면 보조 모듈이다. 상세는 [PROJECT_MAP.md 11절](PROJECT_MAP.md)을 따른다. 테스트는 backend/test/<기능>/<역할>/에 두고 공용 fixture만 backend/test/fixtures에 둔다. system/controller.application이 서버와 기능을 조립하고 API는 각 기능 controller가 등록한다. 설치 스키마는 config/simpleimgviewer.example.yml이며 실제 설정·업무 데이터·네이티브 바이너리는 Git에서 제외한다.
 
 Java/Spring Boot/Gradle 소스와 전용 실행·시험 도구는 제거했다. docs의 기존 Java 설계·명령은 역사적 기록이며 현재 실행 규칙이 아니다. [제거 범위·보관과 복원](LEGACY_SOURCE_REMOVAL.md), [이관 범위와 남은 기능](NODE_REACT_MIGRATION.md)을 따른다. 현재 검증은 Node 테스트·React 빌드·실제 브라우저/네이티브 시험으로 수행한다.

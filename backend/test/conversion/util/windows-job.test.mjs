@@ -7,10 +7,10 @@ import {fork,spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
-import {settings} from '../system/config/settings.mjs';
-import {PlaybackService} from '../playback/service/ffmpeg.mjs';
-import {WindowsJobRunner} from '../conversion/util/windows-job.mjs';
-import {WorkDirectories} from '../conversion/service/work-directories.mjs';
+import {settings} from '../../../system/config/settings.mjs';
+import {PlaybackService} from '../../../playback/service/ffmpeg.mjs';
+import {WindowsJobRunner} from '../../../conversion/util/windows-job.mjs';
+import {WorkDirectories} from '../../../conversion/service/work-directories.mjs';
 
 const native=process.env.SIV_NATIVE_TESTS==='1'&&process.platform==='win32';
 async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'siv-job-test-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));return root;}
@@ -19,7 +19,7 @@ const alive=pid=>{try{process.kill(pid,0);return true;}catch(error){if(error.cod
 
 for(const mode of ['parent-crash','launcher-crash','service-close'])test('Windows Job contains probe on '+mode,{skip:!native},async t=>{
   const root=await fixture(t),record=path.join(root,'한글 공백 probe.json');
-  const parent=fork(fileURLToPath(new URL('./fixtures/job-parent.mjs',import.meta.url)),[record],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+  const parent=fork(fileURLToPath(new URL('../../fixtures/job-parent.mjs',import.meta.url)),[record],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   t.after(async()=>{if(parent.exitCode===null&&parent.signalCode===null){const exit=once(parent,'exit');parent.kill('SIGKILL');await exit;}});
   const [{launcherPid}]=await once(parent,'message',{signal:AbortSignal.timeout(10000)});
   let probe;await until(async()=>{try{probe=JSON.parse(await fs.readFile(record,'utf8'));return true;}catch{return false;}});
@@ -82,7 +82,7 @@ test('resource settings reject disabled or excessive limits',async()=>{
 test('actual FFmpeg protects its work until parent crash and recovery blocks delayed execution',{skip:!native},async t=>{
   const root=await fixture(t),policy={recoveryEnabled:true,minAgeMs:60000,scanLimit:100};
   const workManager=new WorkDirectories(root,policy,'playback');await workManager.init();const work=await workManager.create();
-  const parent=fork(fileURLToPath(new URL('./fixtures/job-parent.mjs',import.meta.url)),[path.join(root,'unused'),'ffmpeg',work],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+  const parent=fork(fileURLToPath(new URL('../../fixtures/job-parent.mjs',import.meta.url)),[path.join(root,'unused'),'ffmpeg',work],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   t.after(async()=>{if(parent.exitCode===null&&parent.signalCode===null){const exited=once(parent,'exit');parent.kill('SIGKILL');await exited;}});
   const [{launcherPid}]=await once(parent,'message',{signal:AbortSignal.timeout(15000)});
   assert.ok(Number.isSafeInteger(launcherPid)&&launcherPid>0);

@@ -9,9 +9,9 @@ import {once} from 'node:events';
 import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {ImageEngine} from '../conversion/service/image-engine.mjs';
-import {WorkDirectories} from '../conversion/service/work-directories.mjs';
-import {settings} from '../system/config/settings.mjs';
+import {ImageEngine} from '../../../conversion/service/image-engine.mjs';
+import {WorkDirectories} from '../../../conversion/service/work-directories.mjs';
+import {settings} from '../../../system/config/settings.mjs';
 
 async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'siv-image-job-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));return root;}
 async function bmp(root){
@@ -58,7 +58,7 @@ test('parent crash terminates the actual image worker and releases its work for 
   const server=net.createServer(socket=>{sockets.add(socket);socket.on('error',()=>{});socket.on('close',()=>sockets.delete(socket));});
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(pipe,resolve);});
   t.after(async()=>{for(const socket of sockets)socket.destroy();await new Promise(resolve=>server.close(resolve));});
-  const parent=fork(fileURLToPath(new URL('./fixtures/image-job-parent.mjs',import.meta.url)),[root,pipe],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+  const parent=fork(fileURLToPath(new URL('../../fixtures/image-job-parent.mjs',import.meta.url)),[root,pipe],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   t.after(async()=>{if(parent.exitCode===null&&parent.signalCode===null){const exited=once(parent,'exit');parent.kill('SIGKILL');await exited;}});
   const [{launcherPid,work}]=await once(parent,'message',{signal:AbortSignal.timeout(10000)});await until(()=>sockets.size>0);
   const script=`Get-CimInstance Win32_Process -Filter 'ParentProcessId = ${Number(launcherPid)}' | Select-Object ProcessId,ExecutablePath,CommandLine | ConvertTo-Json -Compress`;

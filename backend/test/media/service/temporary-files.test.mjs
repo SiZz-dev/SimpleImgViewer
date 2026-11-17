@@ -7,9 +7,9 @@ import {randomUUID} from 'node:crypto';
 import {fork} from 'node:child_process';
 import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
-import {TemporaryFiles} from '../media/service/temporary-files.mjs';
-import {createApplication} from '../system/controller/application.mjs';
-import {settings} from '../system/config/settings.mjs';
+import {TemporaryFiles} from '../../../media/service/temporary-files.mjs';
+import {createApplication} from '../../../system/controller/application.mjs';
+import {settings} from '../../../system/config/settings.mjs';
 
 const policy={recoveryEnabled:true,minAgeMs:60000,scanLimit:100};
 async function root(t){const directory=await fs.mkdtemp(path.join(os.tmpdir(),'siv-temp-owner-'));t.after(()=>fs.rm(directory,{recursive:true,force:true}));return directory;}
@@ -29,7 +29,7 @@ test('temporary owner blocks competing owners and close waits for active transfe
 
 test('crashed process loses its OS lock; only old UUID transfer files are reclaimed',async t=>{
   const directory=await root(t);
-  const child=fork(fileURLToPath(new URL('./fixtures/temporary-owner.mjs',import.meta.url)),[directory],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+  const child=fork(fileURLToPath(new URL('../../fixtures/temporary-owner.mjs',import.meta.url)),[directory],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   t.after(async()=>{if(child.exitCode===null&&child.signalCode===null){const ended=once(child,'exit');child.kill();await ended;}});
   const [{file}]=await once(child,'message',{signal:AbortSignal.timeout(10000)});
   const competing=new TemporaryFiles(directory,policy);await assert.rejects(competing.init(),{code:'STORAGE_IN_USE'});

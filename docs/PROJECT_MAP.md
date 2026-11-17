@@ -13,7 +13,7 @@
 ```mermaid
 flowchart LR
   subgraph FE[frontend/src]
-    App[viewer/App.jsx<br/>단일 컴포넌트]
+    App["viewer/App.jsx<br/>상태·흐름 + components/*"]
   end
   subgraph SYS[backend/system]
     main[main.mjs] --> appf[controller/application.mjs<br/>createApplication]
@@ -69,7 +69,7 @@ flowchart LR
 | 설정 | `backend/system/config/settings.mjs` | 기본값 + YAML + override 병합, 범위 검증, 개발용 FFmpeg/Job 실행기 manifest 자동 연결 |
 | 인증 | `backend/security/service/session.mjs` | 개발 모드 전용 쿠키 세션 + CSRF + Origin 검사. **운영 인증은 없음(항상 401)** |
 | 기능 | `viewer` `media` `editing` `playback` `conversion` | 아래 2~5절 |
-| 화면 | `frontend/src/viewer/App.jsx` (+ `viewer.css`) | 모든 UI·상태가 단일 컴포넌트에 있음 |
+| 화면 | `frontend/src/viewer/` | `App.jsx`가 상태·업무 흐름을 갖고, `components/`가 props로 그림. `api.js`·`messages.js`·`format.js`·`launch.js`는 보조 모듈 (11절) |
 | 네이티브 | `native/process-job`, `native/imagegate-converter` | Windows Job/LPAC 실행기(C++), 로컬 빌드 후 해시로 고정 |
 
 ---
@@ -109,14 +109,14 @@ flowchart LR
      → /viewer 정적(dist) → 404 JSON → 오류 핸들러(ApiError.code만 노출)
 ```
 
-- 오류 규약: 서비스는 `requireThat(조건, status, CODE)`로 `ApiError`를 던지고, 응답은 `{code}`만 반환합니다. 화면은 `App.jsx`의 `messages[code]`로 한국어 안내를 매핑합니다. **새 오류 코드를 추가하면 `messages`도 함께 확인**하세요.
+- 오류 규약: 서비스는 `requireThat(조건, status, CODE)`로 `ApiError`를 던지고, 응답은 `{code}`만 반환합니다. 화면은 `frontend/src/viewer/messages.js`(`describe`·`brief`)로 한국어 안내를 매핑합니다. **새 오류 코드를 추가하면 `messages`도 함께 확인**하세요.
 - 업로드 계열(`POST /media`, `/media/import-url`, `/stamps`)은 `application.mjs`의 `admission`으로 동시 2건 제한(429 `UPLOAD_BUSY`).
 
 ---
 
 ## 4. API 라우트 맵
 
-| 메서드·경로 | controller | 서비스 호출 체인 | 기능 플래그 | 화면 호출 위치(App.jsx) |
+| 메서드·경로 | controller | 서비스 호출 체인 | 기능 플래그 | 화면 호출 위치(App.jsx 함수) |
 | --- | --- | --- | --- | --- |
 | GET `/api/v1/viewer/bootstrap` | viewer/routes | config만 읽음, CSRF 토큰 반환 | 응답에 features·limits 포함 | 초기 `useEffect` |
 | POST `/api/v1/viewer/sessions` | viewer/routes | `ViewerSessions.create` → `store.require`×N → `scan` → `atomicJson` | – | `sessionFor` |
@@ -250,7 +250,7 @@ GET …/playback/sources/:sourceId/content → PlaybackService.source → 크기
 ```
 
 - `playback/util/ffmpeg-profile.mjs`는 **PlaybackService, conversion/util/lpac-bindings(mediaLpacBinding), native lpac-media 요청 인코딩**이 공유합니다.
-- 화면 `App.jsx`의 `mediaProps`가 `<video>`·`<audio>` 공통 처리를 담당합니다. 세션 시작 시간 적용(`onLoadedMetadata`), 탐색 제한(`lastTime` 기준 0.5초 초과 이동 되돌림), 배속 제한(`controlsList`, `onRateChange`)을 여기서 처리합니다. 서버 Range 전달은 이 설정과 무관합니다.
+- 화면 `App.jsx`의 `mediaProps`가 `<video>`·`<audio>` 공통 처리를 담당하고, `components/PlaybackStage.jsx`가 이를 요소에 적용합니다. 세션 시작 시간 적용(`onLoadedMetadata`), 탐색 제한(`lastTime` 기준 0.5초 초과 이동 되돌림), 배속 제한(`controlsList`, `onRateChange`)을 여기서 처리합니다. 서버 Range 전달은 이 설정과 무관합니다.
 
 ### 5.7 뷰어 세션·진입 URL
 
@@ -329,15 +329,17 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | `playback/util/ffmpeg-profile.mjs` | PlaybackService, lpac-bindings `mediaLpacBinding`, native lpac-media | windows-job, lpac-media-transport, lpac-bindings, `scripts/test-lpac-media-transport.mjs` |
 | `*-lpac-*-request.mjs` (SIVLPAC1 바이너리 형식) | `native/process-job/lpac-request.h`, lpac-image.cpp, lpac-media.cpp | 네이티브 재빌드 + LPAC 전송 테스트 |
 | sourceId 공식 / 캐시 디렉터리 이름 | MediaService(page/source), PlaybackService(convert/source), CacheStorage 정규식 | cache-storage, server.test |
-| 오류 코드 추가·변경 | App.jsx `messages` | 화면 오류 표시 |
+| 오류 코드 추가·변경 | `viewer/messages.js` | 화면 오류·안내 표시 |
 | 편집 문서 이름 `editing/<mediaId>-<page>.json` | `EditingService.docPath`, `MediaStore.remove`(삭제용 정규식), `atomicJson` 임시 이름 | server.test 삭제 테스트 |
 | 원본 폴더 구성(`source`, `record.json`, 임시 파일) | `MediaStore.register/remove`, `UploadCapacity.init`(낯선 파일이 있으면 기동 거절) | upload-capacity, server.test 삭제 테스트 |
 | 세션 필드 | `ViewerSessions.create/update/view`, App.jsx 복원·`saveSession` | sessions.test, server.test 세션 테스트 |
-| 한도 값(주석 200, 메모 500, 스탬프 100/2MiB, 자르기 8MP) | editing.mjs, editing/routes, viewer/routes bootstrap, lpac-bindings, App.jsx(maxLength) | server.test |
+| 한도 값(주석 200, 메모 500, 스탬프 100/2MiB, 자르기 8MP) | editing.mjs, editing/routes, viewer/routes bootstrap, lpac-bindings, `components/ToolsPanel.jsx`(maxLength) | server.test |
 | `settings.mjs` 키 | example.yml, 해당 서비스, `backend/test/system/config/*` | settings 테스트 + 기동 확인 |
 | `native/process-job/main.cpp` | 개발 모드 manifest 해시(`PROCESS_JOB_BUILD_STALE`) | `scripts/build-process-job.ps1 -TestTools` 후 전체 테스트 |
 | API 응답 필드 | App.jsx 해당 함수, `scripts/test-node-viewer.mjs`(브라우저 시나리오) | 빌드 + 브라우저 시나리오 |
-| `frontend/src/viewer/App.jsx` | 단일 파일이라 모든 UI 기능 | `node scripts/build-web.mjs` + 브라우저 시나리오 |
+| `frontend/src/viewer/App.jsx`(상태·흐름) | 이를 props로 받는 `components/*` 전체 | `node scripts/build-web.mjs` + 브라우저 시나리오 |
+| `frontend/src/viewer/components/*` | 해당 화면 영역만(props는 App에서 전달) | 빌드 + 해당 영역 브라우저 확인 |
+| `frontend/src/viewer/api.js` | 모든 서버 호출(CSRF 헤더·오류 코드 변환) | 빌드 + 브라우저 전체 시나리오 |
 
 ---
 
@@ -347,15 +349,16 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 
 | 파일 | 주 대상 | 비고 |
 | --- | --- | --- |
-| server.test.mjs (23) | application 전체 HTTP: 업로드·URL·페이지·주석·반출·세션(생성·갱신)·삭제·보안 헤더·CSRF·기능 설정 | 통합 회귀의 중심 |
-| cache-storage.test.mjs (6) | CacheStorage | 루트에 있음(기능 폴더 미정리) |
-| image-job.test.mjs (4) | ImageEngine + Job 실행기 | 네이티브 필요 |
-| playback-native.test.mjs | 실제 FFmpeg 재생 | `SIV_NATIVE_TESTS=1` |
-| sessions / temporary-files / upload-capacity / work-directories / windows-job | 각 서비스 | 루트에 있음 |
-| conversion/service/* | lpac-image-transport, lpac-work-recovery, managed-runtimes, managed-verifier(미커밋), note-font, runtime-verifier-pool, runtime-versions | |
-| conversion/util/* | lpac-bindings, runtime-inventory | |
-| playback/service/lpac-media-transport | LpacMediaTransport | |
-| system/config/* | lpac-settings, runtime-verifier-settings(미커밋) | |
+| system/controller/server.test.mjs (23) | application 전체 HTTP: 업로드·URL·페이지·주석·반출·세션(생성·갱신)·삭제·보안 헤더·CSRF·기능 설정 | 통합 회귀의 중심 |
+| system/config/* | lpac-settings, runtime-verifier-settings | |
+| media/service/* | temporary-files, upload-capacity | |
+| viewer/service/sessions.test.mjs | ViewerSessions 만료 정리·생성 한도 | |
+| conversion/service/* | cache-storage, image-job(ImageEngine + Job 실행기, 네이티브 필요), work-directories, lpac-image-transport, lpac-work-recovery, managed-runtimes, managed-verifier, note-font, runtime-verifier-pool, runtime-versions | |
+| conversion/util/* | windows-job, lpac-bindings, runtime-inventory | |
+| playback/service/* | playback-native(실제 FFmpeg, `SIV_NATIVE_TESTS=1`), lpac-media-transport | |
+| fixtures/, conversion/fixtures/ | 자식 프로세스 진입점 등 공용 fixture | `scripts/test-lpac-*`, `test-runtime-*`도 사용하므로 위치 유지 |
+
+테스트는 대상 기능·역할 폴더(`backend/test/<기능>/<역할>/`)에 둡니다. 옮길 때는 상대 import(`../../../<기능>/…`)와 fixture 경로(`../../fixtures/…`)를 함께 고칩니다.
 
 - 2026-11-17 실행 결과: `SIV_NATIVE_TESTS=1`에서 **145/145 통과**(약 27초). 환경 변수가 없으면 네이티브 16개를 건너뜁니다.
 - 화면(React) 단위 테스트는 없습니다. 화면 검증은 `scripts/test-node-viewer.mjs`(Playwright + Chrome, `IMAGEGATE_NODE_MODULES`/`IMAGEGATE_BROWSER` 환경 변수 필요, Playwright는 의존성에 없음)뿐입니다.
@@ -382,7 +385,35 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 
 ---
 
-## 11. 작업할 때 쓰는 절차
+## 11. 화면(frontend) 구조
+
+```
+frontend/src/main.jsx → viewer/App.jsx
+viewer/
+├─ App.jsx        상태(useState/useRef)와 업무 흐름: bootstrap, select, openFiles/openUrl, removeFile,
+│                 saveItem/historyChange/uploadStamp/download, saveSession, 포인터(pan/crop/주석 드래그), mediaProps
+├─ api.js         createApi(csrfRef) → api(path,{method,json,body,binary,signal,keepalive}); 실패 시 Error(code)
+├─ messages.js    오류 코드 → 한국어 문구, describe(전체 화면 오류) / brief(파일 목록 위 안내)
+├─ format.js      clamp, bytes
+├─ launch.js      ?url= / #url= / ?sessionId= / ?mediaId= 해석(모듈 로드 시 1회, url 진입은 주소창 정리)
+├─ viewer.css
+└─ components/    props만 받아 그리는 화면 조각
+   ├─ Header.jsx         패널 전환, 확대·맞춤·회전·돋보기, 테마, 파일/URL 열기(file-input)
+   ├─ Icon.jsx           아이콘 버튼
+   ├─ FilePanel.jsx      파일 목록, notice, 삭제 버튼
+   ├─ Viewport.jsx       이미지 surface·주석·자르기 영역, 안내 화면, 페이지 이동(children = PlaybackStage)
+   ├─ PlaybackStage.jsx  <video>/<audio>에 mediaProps 적용
+   ├─ ToolsPanel.jsx     패널 틀 + ImageTools(밝기·메모·스탬프·자르기·파일 정보) / PlaybackInfo(배속·재생 정보)
+   ├─ Lens.jsx           돋보기
+   └─ UrlDialog.jsx      URL 입력 창(입력값 상태 자체 보유, 닫히면 초기화)
+```
+
+- 서버 호출과 오류 처리는 App에서 `run(()=>…)`으로 감싼 콜백을 컴포넌트에 넘깁니다. 컴포넌트에서 `fetch`를 직접 하지 않습니다.
+- JSX는 자동 런타임으로 변환되므로 새 컴포넌트에 `import React`가 필요 없습니다.
+- 이미지 위 포인터 처리는 `setPointerCapture`를 쓰므로 브라우저 확인 시 스크립트 이벤트가 아니라 실제 마우스 입력이 필요합니다.
+- 내려받기는 Blob → `URL.createObjectURL` → `<a download>`입니다. CSP `connect-src 'self'` 때문에 `blob:` 주소를 `fetch`로 다시 읽을 수 없습니다.
+
+## 12. 작업할 때 쓰는 절차
 
 1. 이 문서 4~5절에서 대상 기능의 호출 체인을 찾고, 8절에서 영향 범위를 확인합니다.
 2. 수정 후 최소 검증:

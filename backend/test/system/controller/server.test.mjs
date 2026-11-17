@@ -8,9 +8,9 @@ import sharp from 'sharp';
 import {randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
-import {createApplication} from '../system/controller/application.mjs';
-import {remoteUrl} from '../media/service/remote.mjs';
-import {UploadCapacity} from '../media/service/upload-capacity.mjs';
+import {createApplication} from '../../../system/controller/application.mjs';
+import {remoteUrl} from '../../../media/service/remote.mjs';
+import {UploadCapacity} from '../../../media/service/upload-capacity.mjs';
 
 async function fixture(t,{development=true,overrides={}}={}){
   const root=path.join(await fs.mkdtemp(path.join(os.tmpdir(),'siv-node-test-')),'.private');
@@ -90,7 +90,7 @@ test('original moved before metadata failure remains charged and is counted on r
   });
   assert.equal((await f.upload()).status,500);mock.mock.restore();
   assert.equal(f.application.store.capacity.used,f.png.length);assert.equal(f.application.store.capacity.diskReserved,0);
-  const {UploadCapacity}=await import('../media/service/upload-capacity.mjs');
+  const {UploadCapacity}=await import('../../../media/service/upload-capacity.mjs');
   const inventory=new UploadCapacity(f.application.config);assert.equal((await inventory.init()).bytes,f.png.length);
 });
 

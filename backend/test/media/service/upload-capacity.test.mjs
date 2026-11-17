@@ -4,8 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {UploadCapacity} from '../media/service/upload-capacity.mjs';
-import {settings} from '../system/config/settings.mjs';
+import {UploadCapacity} from '../../../media/service/upload-capacity.mjs';
+import {settings} from '../../../system/config/settings.mjs';
 
 const config={storage:{maxOriginalBytes:1000,originalScanLimit:100},upload:{minFreeBytes:100}};
 test('concurrent original reservations cannot spend the same remaining quota',async()=>{

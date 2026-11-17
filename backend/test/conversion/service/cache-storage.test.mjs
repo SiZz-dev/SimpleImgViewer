@@ -4,8 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {CacheStorage} from '../conversion/service/cache-storage.mjs';
-import {settings} from '../system/config/settings.mjs';
+import {CacheStorage} from '../../../conversion/service/cache-storage.mjs';
+import {settings} from '../../../system/config/settings.mjs';
 
 const policy={cleanupOnStartup:true,maxBytes:1000000,maxAgeMs:60000,scanLimit:100};
 async function fixture(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'siv-cache-test-'));await fs.mkdir(path.join(root,'derived'));t.after(()=>fs.rm(root,{recursive:true,force:true}));return root;}

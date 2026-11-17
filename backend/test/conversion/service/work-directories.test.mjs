@@ -6,11 +6,11 @@ import os from 'node:os';
 import {fork} from 'node:child_process';
 import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
-import {WorkDirectories} from '../conversion/service/work-directories.mjs';
-import {openWorkLease} from '../conversion/util/work-lease.mjs';
-import {ImageEngine} from '../conversion/service/image-engine.mjs';
-import {PlaybackService} from '../playback/service/ffmpeg.mjs';
-import {settings} from '../system/config/settings.mjs';
+import {WorkDirectories} from '../../../conversion/service/work-directories.mjs';
+import {openWorkLease} from '../../../conversion/util/work-lease.mjs';
+import {ImageEngine} from '../../../conversion/service/image-engine.mjs';
+import {PlaybackService} from '../../../playback/service/ffmpeg.mjs';
+import {settings} from '../../../system/config/settings.mjs';
 import sharp from 'sharp';
 
 const policy={recoveryEnabled:true,minAgeMs:60000,scanLimit:100};
@@ -23,7 +23,7 @@ async function old(directory){const value=new Date(Date.now()-120000);await fs.u
 
 test('recovery preserves a live worker lease, then retires abandoned work after worker crash',async t=>{
   const {root,work}=await fixture(t),directory=await work.create();
-  const child=fork(fileURLToPath(new URL('./fixtures/work-owner.mjs',import.meta.url)),[directory],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+  const child=fork(fileURLToPath(new URL('../../fixtures/work-owner.mjs',import.meta.url)),[directory],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   t.after(async()=>{if(child.exitCode===null&&child.signalCode===null){const ended=once(child,'exit');child.kill('SIGKILL');await ended;}});
   await once(child,'message',{signal:AbortSignal.timeout(10000)});await old(directory);
   const recovery=new WorkDirectories(root,policy);assert.equal((await recovery.init()).busy,1);
@@ -84,7 +84,7 @@ test('cache publication preserves its retired lease and failed publication remai
 });
 
 test('image worker CLI rejects missing job data instead of waiting for unbounded IPC',async()=>{
-  const worker=fork(fileURLToPath(new URL('../conversion/util/image-worker.mjs',import.meta.url)),[],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
+  const worker=fork(fileURLToPath(new URL('../../../conversion/util/image-worker.mjs',import.meta.url)),[],{execArgv:[],windowsHide:true,stdio:['ignore','ignore','pipe','ipc']});
   const [code]=await once(worker,'close',{signal:AbortSignal.timeout(10000)});assert.notEqual(code,0);
 });
 

@@ -1,7 +1,6 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
-import {createHash,randomUUID} from 'node:crypto';
-import {readJson,atomicJson,digest,regular,privateRoot} from '../util/files.mjs';
+import {createHash} from 'node:crypto';
+import {readJson,atomicJson,digest,regular} from '../util/files.mjs';
 import {requireThat,integer} from '../../system/util/errors.mjs';
 export class MediaService {
   constructor(store,images,playback){this.store=store;this.images=images;this.playback=playback;this.running=new Map();}

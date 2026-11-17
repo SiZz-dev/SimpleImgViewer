@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import {createApplication} from '../system/controller/application.mjs';
+import {createApplication} from '../../../system/controller/application.mjs';
 for(const format of ['mp4','mpeg','mp3','wav'])test('installed FFmpeg '+format+' normalization and guarded Range API',{skip:process.env.SIV_NATIVE_TESTS!=='1'},async t=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'siv-node-playback-'));
   const application=await createApplication({development:true,overrides:{server:{host:'127.0.0.1',port:0},storage:{root},upload:{minFreeBytes:0}}});t.after(()=>application.close());

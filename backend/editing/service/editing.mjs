@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {readJson,atomicJson,regular,detect,digest} from '../../media/util/files.mjs';
-import {requireThat,uuidPattern,finite,integer} from '../../system/util/errors.mjs';
+import {requireThat,uuidPattern,finite} from '../../system/util/errors.mjs';
 export class EditingService {
   constructor(store,media){this.store=store;this.media=media;this.locks=new Map();}
   docPath(id,page){return path.join(this.store.root,'editing',id+'-'+page+'.json');}

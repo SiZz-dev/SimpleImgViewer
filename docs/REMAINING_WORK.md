@@ -147,17 +147,41 @@
 
 | # | 항목 | 근거 | 제안 |
 | --- | --- | --- | --- |
-| E1 | 화면 전체가 `App.jsx` 단일 컴포넌트(188줄·25KB, 상태 30여 개) | frontend/src/viewer/App.jsx | API 클라이언트·FileList·Viewport·ToolsPanel·PlaybackPanel·UrlDialog로 분리 (AGENTS.md "React 컴포넌트로 관리") |
+| ~~E1~~ | ✅ 2026-11-17 완료. 화면 전체가 `App.jsx` 단일 컴포넌트였던 문제 → 모듈 4개 + `components/` 8개로 분리(상태·흐름은 App 유지) | frontend/src/viewer | 아래 완료 기록. 상태 관리 분리(커스텀 훅 등)는 필요할 때 별도 검토 |
 | E2 | 한 줄에 여러 문장을 넣는 압축 코드 스타일 → 리뷰·diff 추적이 어려움 | backend 전반 | 포매터 도입 여부 결정(D4). 도입 시 기능 변경과 별도 커밋 |
-| E3 | 테스트 9개가 `backend/test` 루트에 있음(cache-storage, image-job, playback-native, server, sessions, temporary-files, upload-capacity, windows-job, work-directories) | AGENTS.md "테스트도 대상 기능·역할 패키지에 맞춥니다" | 기능/역할 폴더로 이동 |
+| ~~E3~~ | ✅ 2026-11-17 완료. 루트 테스트 9개를 기능/역할 폴더로 이동(`git mv`, 상대 경로 31곳 수정). 공용 `backend/test/fixtures`는 scripts도 쓰므로 유지 | backend/test | 아래 완료 기록 |
 | E4 | 한도 상수 중복: bootstrap `limits`와 각 서비스에 같은 숫자가 따로 있음(주석 200, 메모 500, 스탬프 100/2MiB, 자르기 8MP) | viewer/routes.mjs, editing.mjs, lpac-bindings.mjs | 기능별 상수 모듈로 단일화 |
-| E5 | 사용하지 않는 import: `integer`(application.mjs, editing.mjs), `randomUUID`·`privateRoot`(media.mjs), `constants`(files.mjs) | 정적 확인 | 정리 |
+| ~~E5~~ | ✅ 2026-11-17 완료. 백엔드 미사용 import 6개(`integer`×2, media.mjs의 `fs`·`randomUUID`·`privateRoot`, `constants`) 제거. 화면은 자동 JSX 런타임이라 새 파일에서 `import React`를 쓰지 않음(`main.jsx`만 남음) | 정적 확인 스크립트 | 아래 완료 기록 |
 | E6 | 개인 LAN IP `192.168.0.86`이 기본값·예제·화면 placeholder에 하드코딩 | settings.mjs, example yml, App.jsx | 기본값에서 제거, 설정으로만 지정 |
 | E7 | 서버가 현재 작업 디렉터리 기준 상대 경로에 의존(`dist`, `config/`, `build/`, `pnpm-lock.yaml`, `.runtime/`) | settings.mjs, application.mjs, image-engine.mjs | 저장소 루트 기준 절대 경로로 해석 |
 | E8 | 화면 단위 테스트 없음, 브라우저 시나리오는 외부 Playwright 경로 환경 변수 필요 | scripts/test-node-viewer.mjs | devDependency로 고정하거나 실행 안내를 스크립트화 |
 | E9 | 사용하지 않는 API: `GET /media/:id/status`, `POST /media/:id/previews`(페이지 API와 동일 동작) | media/routes.mjs | 유지 이유 없으면 제거 |
 | E10 | Java 잔재(로컬, Git 제외): `.gradle/`, `build/classes`, `build/resolvedMainClassName`, `.tools/gradle-*`, `config/imagegate.example.yml` | 디렉터리 확인 | 필요 없으면 정리(업무 자료·`data/`는 대상 아님) |
 | E11 | docs 90여 개 중 대부분이 Java 시절·단계 기록 | docs/ | PROJECT_MAP.md 10절 분류 유지, 필요 시 `docs/history/`로 이동 |
+
+#### 2026-11-17 완료 기록 (E1 화면 분리, E3 테스트 위치, E5 import 정리)
+
+- **E1:** 동작을 바꾸지 않는 구조 정리다. App.jsx는 229줄에서 177줄이 됐다.
+  - 모듈: `api.js`(createApi: CSRF·오류 코드), `messages.js`(문구 33개, `describe`·`brief`), `format.js`, `launch.js`(진입 주소 해석)
+  - `components/`: `Header`, `Icon`, `FilePanel`, `Viewport`(재생 화면은 children), `PlaybackStage`, `ToolsPanel`(`ImageTools`·`PlaybackInfo`), `Lens`, `UrlDialog`(입력값 상태 자체 보유)
+  - App은 상태와 업무 흐름(select·업로드·삭제·편집·세션 저장·포인터)을 그대로 갖고, 컴포넌트는 props로 받아 그리기만 한다.
+- **E3:** 루트 테스트 9개를 옮겼다.
+  - `conversion/service`: cache-storage, image-job, work-directories
+  - `conversion/util`: windows-job
+  - `playback/service`: playback-native
+  - `system/controller`: server
+  - `viewer/service`: sessions
+  - `media/service`: temporary-files, upload-capacity
+- **E5:** 앞 grep 방식이 놓친 media.mjs의 `fs`까지, 이름별 사용 횟수를 세는 스크립트로 확인했다.
+- 검증
+  - Node 테스트: 네이티브 포함 145/145, 기본 실행 129 통과·16 건너뜀. React 빌드(28 모듈)·라이선스 기준선도 통과했다.
+  - 앱 내장 브라우저(1280×860, 기본/기능 끔 서버)로 다음을 다시 확인했다.
+    - 헤더 컨트롤 전부
+    - 실제 마우스로 메모 추가·드래그·크기 수정·실행 취소/다시 실행, 스탬프 업로드·배치
+    - 자르기·편집본 PNG(편집본에만 스탬프·메모 픽셀 합성)
+    - 돋보기, URL 창, GIF 페이지, 동영상·음성 재생·배속, 새로고침 위치 복원, 일부 업로드 실패 안내, 삭제 흐름
+    - 기능 끔: 밝기·스탬프 비활성, 탐색·배속 복귀
+  - 새 결함은 없었다.
 
 ---
 
@@ -179,5 +203,5 @@
 3. ~~P1 중 작은 것부터: B2·B3·B6·B8·B9~~ ✅ 11-17
 4. ~~B4 미디어 삭제 + B7 세션 갱신~~ ✅ 11-17 (목록은 B10, 캐시 정리는 B11로 남음)
 5. C1~C3 뷰잉 속도 개선(결정 결과 반영, 측정 전후 비교)
-6. E1 화면 컴포넌트 분리(동작 변경 없이), E3·E5 정리
+6. ~~E1 화면 컴포넌트 분리(동작 변경 없이), E3·E5 정리~~ ✅ 11-17
 7. 기존 잔여 A1·A2 등은 D2 결정에 따라 진행
