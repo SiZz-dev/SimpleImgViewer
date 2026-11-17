@@ -5,4 +5,5 @@ export function registerViewerRoutes(app,{config,sessions}){
     csrf:{headerName:'X-CSRF-TOKEN',token:req.viewerSecurity.csrf},limits:{maxFiles:100,maxUploadBytes:config.upload.maxBytes,maxPage:10000,maxAnnotationsPerPage:200,maxNoteLength:500,maxStampsPerUser:100,maxStampUploadBytes:2097152,maxCropOutputPixels:8000000},serverTime:new Date().toISOString()}));
   app.post('/api/v1/viewer/sessions',wrap(async(req,res)=>res.status(201).json(await sessions.create(req.body,req.actor))));
   app.get('/api/v1/viewer/sessions/:id',wrap(async(req,res)=>res.json(await sessions.view(req.params.id,req.actor))));
+  app.patch('/api/v1/viewer/sessions/:id',wrap(async(req,res)=>res.json(await sessions.update(req.params.id,req.body||{},req.actor))));
 }

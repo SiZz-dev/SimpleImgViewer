@@ -6,8 +6,11 @@ import os from 'node:os';
 import http from 'node:http';
 import sharp from 'sharp';
 import {randomBytes} from 'node:crypto';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
 import {createApplication} from '../system/controller/application.mjs';
 import {remoteUrl} from '../media/service/remote.mjs';
+import {UploadCapacity} from '../media/service/upload-capacity.mjs';
 
 async function fixture(t,{development=true,overrides={}}={}){
   const root=path.join(await fs.mkdtemp(path.join(os.tmpdir(),'siv-node-test-')),'.private');
@@ -143,6 +146,59 @@ test('uncompressed 24-bit BMP has bounded decoding and invalid page refusal',asy
   const f=await fixture(t);const bmp=Buffer.alloc(70);bmp.write('BM');bmp.writeUInt32LE(70,2);bmp.writeUInt32LE(54,10);bmp.writeUInt32LE(40,14);bmp.writeInt32LE(2,18);bmp.writeInt32LE(2,22);bmp.writeUInt16LE(1,26);bmp.writeUInt16LE(24,28);bmp.fill(128,54);
   const record=await(await f.upload(bmp,'test.bmp')).json();const p=await f.request('/api/v1/media/'+record.mediaId+'/pages/1');assert.equal(p.status,200);assert.equal((await p.json()).coordinateWidth,2);
   assert.equal((await f.request('/api/v1/media/'+record.mediaId+'/pages/2')).status,422);
+});
+test('viewer session position updates are validated and never extend expiry',async t=>{
+  const f=await fixture(t);const a=await(await f.upload()).json(),b=await(await f.upload()).json();
+  const created=await(await f.request('/api/v1/viewer/sessions',{method:'POST',json:{mediaIds:[a.mediaId,b.mediaId]}})).json();
+  const route='/api/v1/viewer/sessions/'+created.sessionId,patch=json=>f.request(route,{method:'PATCH',json});
+  const updated=await patch({selectedMediaId:b.mediaId,initialPage:3,initialTimeSeconds:12.5});assert.equal(updated.status,200);
+  const view=await(await f.request(route)).json();
+  assert.deepEqual([view.selectedMediaId,view.initialPage,view.initialTimeSeconds,view.expiresAt],[b.mediaId,3,12.5,created.expiresAt]);
+  for(const json of [{selectedMediaId:randomBytes(16).toString('hex').replace(/^(.{8})(.{4})(.{4})(.{4})/,'$1-$2-$3-$4-')},{initialPage:0},{initialTimeSeconds:7201},{mediaIds:[a.mediaId]},{expiresAt:'2999-01-01T00:00:00Z'}]){
+    const r=await patch(json);assert.equal(r.status,400,JSON.stringify(json));assert.equal((await r.json()).code,'INVALID_SESSION');
+  }
+  assert.equal((await f.request('/api/v1/viewer/sessions/00000000-0000-4000-8000-000000000000',{method:'PATCH',json:{initialPage:1}})).status,404);
+  assert.equal((await f.request(route,{method:'PATCH',json:{initialPage:2},headers:{'X-CSRF-TOKEN':'wrong'}})).status,403);
+  assert.deepEqual((({initialPage,initialTimeSeconds})=>[initialPage,initialTimeSeconds])(await(await f.request(route)).json()),[3,12.5]);
+});
+test('media delete removes the original, metadata and edit documents and returns original capacity',async t=>{
+  const f=await fixture(t);const a=await(await f.upload()).json(),b=await(await f.upload()).json();
+  const page=await(await f.request('/api/v1/media/'+a.mediaId+'/pages/1')).json();
+  assert.equal((await f.request('/api/v1/media/'+a.mediaId+'/pages/1/annotations',{method:'POST',json:{mediaVersion:a.mediaVersion,coordinateSpaceId:page.coordinateSpaceId,expectedRevision:0,type:'note',text:'삭제 대상',x:1,y:1,width:20,height:10}})).status,201);
+  const session=await(await f.request('/api/v1/viewer/sessions',{method:'POST',json:{mediaIds:[a.mediaId,b.mediaId],selectedMediaId:a.mediaId,initialPage:1}})).json();
+  const used=f.application.store.capacity.used;
+  assert.equal((await f.request('/api/v1/media/'+a.mediaId,{method:'DELETE',headers:{'X-CSRF-TOKEN':'wrong'}})).status,403);
+  assert.equal((await f.request('/api/v1/media/'+a.mediaId,{method:'DELETE'})).status,204);
+  assert.equal(f.application.store.capacity.used,used-a.sizeBytes);
+  for(const url of ['/api/v1/media/'+a.mediaId,'/api/v1/media/'+a.mediaId+'/pages/1',page.source.url])assert.equal((await f.request(url)).status,404);
+  assert.equal((await f.request('/api/v1/media/'+a.mediaId,{method:'DELETE'})).status,404);
+  await assert.rejects(fs.stat(path.join(f.root,'originals',a.mediaId)),{code:'ENOENT'});
+  assert.deepEqual((await fs.readdir(path.join(f.root,'editing'))).filter(name=>name.startsWith(a.mediaId)),[]);
+  // The session still opens with the remaining file selected.
+  const view=await(await f.request('/api/v1/viewer/sessions/'+session.sessionId)).json();
+  assert.deepEqual([view.media.map(m=>m.mediaId),view.selectedMediaId,view.initialPage],[[b.mediaId],b.mediaId,1]);
+  assert.equal((await f.request('/api/v1/media/'+b.mediaId,{method:'DELETE'})).status,204);
+  assert.equal((await f.request('/api/v1/viewer/sessions/'+session.sessionId)).status,404);
+  // A fresh startup scan counts the same bytes as the running server.
+  assert.equal(f.application.store.capacity.used,used-a.sizeBytes-b.sizeBytes);
+  assert.equal((await new UploadCapacity(f.application.config).init()).bytes,f.application.store.capacity.used);
+});
+test('media delete is refused without changes while the original is busy',async t=>{
+  const f=await fixture(t);const media=await(await f.upload()).json();const directory=path.join(f.root,'originals',media.mediaId);
+  // An in-flight conversion of this version is refused before touching files.
+  const key=media.mediaVersion+':1:test';f.application.media.running.set(key,Promise.resolve());
+  let r=await f.request('/api/v1/media/'+media.mediaId,{method:'DELETE'});assert.equal(r.status,409);assert.equal((await r.json()).code,'MEDIA_BUSY');
+  f.application.media.running.delete(key);
+  if(process.platform==='win32'){
+    // Another process holding the source without FILE_SHARE_DELETE (like a native decoder) blocks unlink.
+    const holder=spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command',`$f=[IO.File]::Open('${path.join(directory,'source')}','Open','Read','Read');[Console]::Out.WriteLine('locked');[Console]::In.ReadLine()|Out-Null;$f.Close()`],{stdio:['pipe','pipe','inherit'],windowsHide:true});
+    t.after(()=>holder.kill());
+    let output='';holder.stdout.on('data',bytes=>{output+=bytes;});while(!output.includes('locked'))await once(holder.stdout,'data');
+    r=await f.request('/api/v1/media/'+media.mediaId,{method:'DELETE'});assert.equal(r.status,409);assert.equal((await r.json()).code,'MEDIA_BUSY');
+    assert.deepEqual((await fs.readdir(directory)).sort(),['record.json','source']);assert.equal((await f.request('/api/v1/media/'+media.mediaId)).status,200);
+    holder.stdin.end();await once(holder,'exit');
+  }
+  assert.equal((await f.request('/api/v1/media/'+media.mediaId,{method:'DELETE'})).status,204);
 });
 test('installation feature switches are enforced by the server',async t=>{
   const f=await fixture(t,{overrides:{features:{image:false}}});assert.equal((await f.upload()).status,403);

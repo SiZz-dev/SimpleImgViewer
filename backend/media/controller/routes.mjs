@@ -7,6 +7,7 @@ export function registerMediaRoutes(app,{store,media,admission}){
     const received=await receiveUpload(req,store);let record;try{record=await store.register(received.temp,received.fileName,req.actor);}finally{await store.releaseTemp(received.temp);}res.status(201).json(media.public(record));
   })));
   app.post('/api/v1/media/import-url',wrap(async(req,res)=>admission(async()=>res.status(201).json(media.public(await importRemote(req.body,store,req.actor))))));
+  app.delete('/api/v1/media/:id',wrap(async(req,res)=>{await media.remove(req.params.id,req.actor);res.status(204).end();}));
   app.get('/api/v1/media/:id',wrap(async(req,res)=>res.json(media.public(await store.require(req.params.id,req.actor)))));
   app.get('/api/v1/media/:id/pages/:page',wrap(async(req,res)=>res.json(await media.page(req.params.id,Number(req.params.page),req.actor))));
   app.get('/api/v1/media/:id/status',wrap(async(req,res)=>res.json(await media.page(req.params.id,Number(req.query.page||1),req.actor))));

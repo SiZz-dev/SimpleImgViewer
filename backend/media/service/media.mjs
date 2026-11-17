@@ -35,6 +35,13 @@ export class MediaService {
       await this.store.work.publish(work,target,this.store.cache,async()=>{const current=await this.store.require(record.mediaId,actor);requireThat(current.mediaVersion===record.mediaVersion,409,'MEDIA_CHANGED');await this.store.verify(record);if(runtime)await runtime.verify();});return facts;
     }finally{await this.removeWork(work);}
   }
+  async remove(id,actor){
+    const record=await this.store.require(id,actor);
+    // In-flight preview/playback conversions of this version would only fail late; refuse early instead.
+    const busy=[...this.running.keys(),...(this.playback?.running?.keys()??[])].some(key=>key.startsWith(record.mediaVersion+':'));
+    requireThat(!busy,409,'MEDIA_BUSY');
+    await this.store.remove(record);
+  }
   async removeWork(work){
     await this.store.work.release(work);
   }

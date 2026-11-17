@@ -37,11 +37,29 @@ export class ViewerSessions {
     await atomicJson(path.join(this.store.root,'sessions',session.sessionId+'.json'),session);return this.view(session.sessionId,actor);
     });
   }
+  // Restores where the viewer left off. Only the position fields change; expiry is never extended.
+  async update(id,body,actor){
+    requireThat(uuidPattern.test(id),404,'SESSION_NOT_FOUND');
+    requireThat(Object.keys(body).every(key=>['selectedMediaId','initialPage','initialTimeSeconds'].includes(key)),400,'INVALID_SESSION');
+    return this.exclusive(async()=>{
+      const file=path.join(this.store.root,'sessions',id+'.json');let session;
+      try{session=await readJson(file);}catch{requireThat(false,404,'SESSION_NOT_FOUND');}
+      requireThat(session.sessionId===id&&session.ownerId===actor.userId&&session.tenantId===actor.tenantId&&Date.parse(session.expiresAt)>Date.now(),404,'SESSION_NOT_FOUND');
+      const next={...session};for(const key of ['selectedMediaId','initialPage','initialTimeSeconds'])if(body[key]!==undefined)next[key]=body[key];
+      requireThat(next.mediaIds.includes(next.selectedMediaId)&&integer(next.initialPage,1,10000)&&finite(next.initialTimeSeconds,0,7200),400,'INVALID_SESSION');
+      await atomicJson(file,next);
+      return Object.fromEntries(['sessionId','expiresAt','selectedMediaId','initialPage','initialTimeSeconds'].map(k=>[k,next[k]]));
+    });
+  }
   async view(id,actor){
     requireThat(uuidPattern.test(id),404,'SESSION_NOT_FOUND');let session;
     try{session=await readJson(path.join(this.store.root,'sessions',id+'.json'));}catch{requireThat(false,404,'SESSION_NOT_FOUND');}
     requireThat(session.ownerId===actor.userId&&session.tenantId===actor.tenantId&&Date.parse(session.expiresAt)>Date.now(),404,'SESSION_NOT_FOUND');
-    const media=[];for(const id of session.mediaIds)media.push(this.media.public(await this.store.require(id,actor)));
-    return {...Object.fromEntries(['sessionId','createdAt','expiresAt','selectedMediaId','initialPage','initialTimeSeconds','theme','leftPanelOpen'].map(k=>[k,session[k]])),media,positionState:'ready'};
+    // Deleted media are skipped so the rest of the session still opens.
+    const media=[];for(const id of session.mediaIds){try{media.push(this.media.public(await this.store.require(id,actor)));}catch(error){if(error.status!==404)throw error;}}
+    requireThat(media.length>0,404,'SESSION_NOT_FOUND');
+    const view={...Object.fromEntries(['sessionId','createdAt','expiresAt','selectedMediaId','initialPage','initialTimeSeconds','theme','leftPanelOpen'].map(k=>[k,session[k]])),media,positionState:'ready'};
+    if(!media.some(item=>item.mediaId===view.selectedMediaId))Object.assign(view,{selectedMediaId:media[0].mediaId,initialPage:1,initialTimeSeconds:0});
+    return view;
   }
 }

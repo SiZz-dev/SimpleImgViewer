@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {privateRoot,regular,digest,atomicJson,readJson,detect} from '../util/files.mjs';
-import {requireThat,uuidPattern} from '../../system/util/errors.mjs';
+import {ApiError,requireThat,uuidPattern} from '../../system/util/errors.mjs';
 import {TemporaryFiles} from '../service/temporary-files.mjs';
 import {WorkDirectories} from '../../conversion/service/work-directories.mjs';
 import {CacheStorage} from '../../conversion/service/cache-storage.mjs';
@@ -37,6 +37,19 @@ export class MediaStore {
     // Count the physical original even if writing its record fails afterwards.
     this.capacity.commit(temp,stat.size);await atomicJson(path.join(dir,'record.json'),record);
     return record;
+  }
+  // Source first: if it is held open (e.g. by FFmpeg) nothing changes and the caller gets 409.
+  // A crash after that point leaves only metadata, which a repeated delete finishes.
+  // Derived caches are not touched while running; they become unreachable and age out at startup.
+  async remove(record){
+    const dir=path.join(this.root,'originals',record.mediaId),source=path.join(dir,'source');
+    try{const stat=await fs.lstat(source);requireThat(stat.isFile()&&!stat.isSymbolicLink(),500,'UNSAFE_STORAGE');await fs.unlink(source);this.capacity.remove(stat.size);}
+    catch(error){if(['EBUSY','EPERM','EACCES'].includes(error.code))throw new ApiError(409,'MEDIA_BUSY');if(error.code!=='ENOENT')throw error;}
+    for(const name of await fs.readdir(dir))if(name==='record.json'||name.startsWith('record.json.')&&name.endsWith('.tmp')&&uuidPattern.test(name.slice(12,-4)))await fs.unlink(path.join(dir,name)).catch(error=>{if(error.code!=='ENOENT')throw error;});
+    await fs.rmdir(dir).catch(error=>{if(error.code!=='ENOENT')throw error;});
+    // Same naming as EditingService.docPath (<mediaId>-<page>.json) plus atomicJson temporaries.
+    const documents=new RegExp('^'+record.mediaId+'-[1-9][0-9]{0,4}\\.json(?:\\.[a-f0-9-]{36}\\.tmp)?$');
+    for(const name of await fs.readdir(path.join(this.root,'editing')))if(documents.test(name))await fs.unlink(path.join(this.root,'editing',name)).catch(error=>{if(error.code!=='ENOENT')throw error;});
   }
   async temp(bytes=this.config.upload.maxBytes,original=true){
     const file=this.temporary.allocate();

@@ -20,7 +20,8 @@ const messages={AUTHENTICATION_REQUIRED:'로그인이 필요합니다. 개발 �
   UPLOAD_BUSY:'다른 파일을 올리는 중입니다. 잠시 후 다시 시도해 주세요.',PLAYBACK_QUEUE_FULL:'다른 재생 파일을 준비하는 중입니다. 잠시 후 다시 시도해 주세요.',
   MEDIA_CHANGED:'파일이 변경되었습니다. 파일을 다시 선택해 주세요.',STALE_COORDINATES:'편집 정보가 현재 파일과 맞지 않습니다. 파일을 다시 선택해 주세요.',FEATURE_DISABLED:'이 기능은 설정에서 꺼져 있습니다.',
   INVALID_MEDIA:'파일을 해석할 수 없거나 허용 범위(길이·해상도·채널 등)를 넘습니다.',INVALID_PLAYBACK_OUTPUT:'재생용 사본을 만들지 못했습니다.',PLAYBACK_FAILED:'재생 준비에 실패했습니다.',
-  PLAYBACK_TIMEOUT:'재생 준비 시간이 초과되었습니다.',CONVERSION_TIMEOUT:'이미지 처리 시간이 초과되었습니다.'};
+  PLAYBACK_TIMEOUT:'재생 준비 시간이 초과되었습니다.',MEDIA_BUSY:'파일을 처리하는 중이라 지금은 삭제할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  SESSION_NOT_FOUND:'세션이 만료되었거나 열 수 있는 파일이 없습니다. 파일을 다시 열어 주세요.',MEDIA_NOT_FOUND:'파일을 찾을 수 없습니다. 삭제되었거나 열 수 없는 파일입니다.',CONVERSION_TIMEOUT:'이미지 처리 시간이 초과되었습니다.'};
 function Icon({label,children,onClick,disabled=false,active=false}){return <button type="button" title={label} aria-label={label} className={'icon-button'+(active?' active':'')} disabled={disabled} onClick={onClick}>{children}</button>;}
 
 export default function App(){
@@ -30,28 +31,37 @@ export default function App(){
   const [tool,setTool]=useState('move'),[document,setDocument]=useState(null),[selected,setSelected]=useState(null),[noteText,setNoteText]=useState('메모'),[stamps,setStamps]=useState([]),[stampId,setStampId]=useState(''),[crop,setCrop]=useState(null);
   const [urlOpen,setUrlOpen]=useState(false),[url,setUrl]=useState(''),[notice,setNotice]=useState('');
   const csrf=useRef(null),viewport=useRef(null),fileInput=useRef(null),stampInput=useRef(null),player=useRef(null),abort=useRef(null),drag=useRef(null),dialog=useRef(null);
-  const autoFit=useRef(true),lastTime=useRef(0);
+  const autoFit=useRef(true),lastTime=useRef(0),sessionRef=useRef(initialSession),currentRef=useRef(null);
   const imageReady=current?.mediaType==='image'&&info&&!loading,features=bootstrap?.features||{};
   // Seek/speed switches are viewer UX limits; Range delivery stays available for playback itself.
   const isVideo=current?.mediaType==='video',seekAllowed=isVideo?features.videoSeek:features.audioSeek,speedAllowed=isVideo?features.videoPlaybackSpeed:features.audioPlaybackSpeed;
   const mediaProps={ref:player,src:playback?.url,controls:true,preload:'metadata',controlsList:speedAllowed?undefined:'noplaybackrate',
     onLoadStart:()=>{lastTime.current=0;},onEnded:()=>{lastTime.current=0;},
+    onPause:e=>saveSession(playbackPosition(e.currentTarget)),
     // Session restore applies the saved start time to both video and audio.
     onLoadedMetadata:e=>{lastTime.current=playback?.startTime||0;e.currentTarget.currentTime=lastTime.current;},
     onTimeUpdate:e=>{if(!e.currentTarget.seeking)lastTime.current=e.currentTarget.currentTime;},
     onSeeking:e=>{const media=e.currentTarget;if(!seekAllowed&&Math.abs(media.currentTime-lastTime.current)>0.5)media.currentTime=lastTime.current;},
     onRateChange:e=>{if(!speedAllowed&&e.currentTarget.playbackRate!==1)e.currentTarget.playbackRate=1;}};
-  async function api(path,{method='GET',json,body,binary=false,signal}={}){
+  async function api(path,{method='GET',json,body,binary=false,signal,keepalive=false}={}){
     const headers={};if(method!=='GET'){if(!csrf.current)throw Error('CSRF_INVALID');headers[csrf.current.headerName]=csrf.current.token;}
     if(json!==undefined){headers['Content-Type']='application/json';body=JSON.stringify(json);}
-    const response=await fetch(path,{method,headers,body,credentials:'same-origin',cache:'no-store',redirect:'error',signal});
+    const response=await fetch(path,{method,headers,body,credentials:'same-origin',cache:'no-store',redirect:'error',signal,keepalive});
     if(!response.ok){let code='REQUEST_FAILED';try{code=(await response.json()).code||code;}catch{}throw Error(code);}
     return binary?response.blob():response.status===204?null:response.json();
   }
+  // Best effort: a failed position save must never interrupt viewing.
+  function saveSession(state,keepalive=false){const id=sessionRef.current;if(!id||!csrf.current)return;api('/api/v1/viewer/sessions/'+id,{method:'PATCH',json:state,keepalive}).catch(()=>{});}
+  const playbackPosition=media=>({selectedMediaId:currentRef.current.mediaId,initialPage:1,initialTimeSeconds:media.ended?0:clamp(Math.floor(media.currentTime||0),0,7200)});
   const report=e=>{if(e.name!=='AbortError')setError(messages[e.message]||'요청을 완료하지 못했습니다. '+e.message);};
   const run=action=>Promise.resolve().then(action).catch(report);
   useEffect(()=>{globalThis.document.documentElement.dataset.theme=theme;try{localStorage.setItem('simpleimgviewer.theme',theme);}catch{}},[theme]);
   useEffect(()=>{if(urlOpen){dialog.current?.showModal();}else dialog.current?.close();},[urlOpen]);
+  useEffect(()=>{
+    // A refresh while playing keeps the position; keepalive lets the request outlive the page.
+    const hide=()=>{const media=player.current;if(media&&currentRef.current&&currentRef.current.mediaType!=='image'&&!media.paused)saveSession(playbackPosition(media),true);};
+    addEventListener('pagehide',hide);return()=>removeEventListener('pagehide',hide);
+  },[]);
   useEffect(()=>{
     if(!info||!viewport.current)return;const observer=new ResizeObserver(()=>{if(autoFit.current)fit(info);});observer.observe(viewport.current);return()=>observer.disconnect();
   },[info,angle]);
@@ -74,7 +84,7 @@ export default function App(){
   function manualZoom(value){autoFit.current=false;setZoom(value);}
   async function select(record,nextPage=1,startTime=0,boot=bootstrap){
     if(!record)return;abort.current?.abort();const controller=new AbortController();abort.current=controller;
-    setCurrent(record);setPage(nextPage);setInfo(null);setPlayback(null);setDocument(null);setCrop(null);setSelected(null);setError('');setLoading(true);setAngle(0);setBrightness(100);setTool('move');
+    currentRef.current=record;setCurrent(record);setPage(nextPage);setInfo(null);setPlayback(null);setDocument(null);setCrop(null);setSelected(null);setError('');setLoading(true);setAngle(0);setBrightness(100);setTool('move');
     try{
       if(record.mediaType==='image'){
         const p=await api('/api/v1/media/'+record.mediaId+'/pages/'+nextPage,{signal:controller.signal});setInfo(p);setZoom(1);setPan({x:0,y:0});
@@ -86,9 +96,10 @@ export default function App(){
         if(p.state==='disabled')throw Error('PLAYBACK_DISABLED');if(p.state!=='ready')throw Error('PLAYBACK_FAILED');
         setPlayback({...p,startTime});
       }
+      if(!controller.signal.aborted)saveSession({selectedMediaId:record.mediaId,initialPage:nextPage,initialTimeSeconds:clamp(startTime,0,7200)});
     }finally{if(!controller.signal.aborted)setLoading(false);}
   }
-  async function sessionFor(records){const s=await api('/api/v1/viewer/sessions',{method:'POST',json:{mediaIds:records.map(f=>f.mediaId),theme,leftPanelOpen:left}});history.replaceState(null,'','/viewer?sessionId='+s.sessionId);}
+  async function sessionFor(records){const s=await api('/api/v1/viewer/sessions',{method:'POST',json:{mediaIds:records.map(f=>f.mediaId),theme,leftPanelOpen:left}});sessionRef.current=s.sessionId;history.replaceState(null,'','/viewer?sessionId='+s.sessionId);}
   async function openFiles(event){
     const chosen=Array.from(event.target.files||[]);event.target.value='';if(!chosen.length)return;
     setLoading(true);setError('');setNotice('');try{
@@ -103,6 +114,17 @@ export default function App(){
   }
   async function openUrl(value){
     setLoading(true);setError('');setNotice('');setUrlOpen(false);setUrl('');try{const file=await api('/api/v1/media/import-url',{method:'POST',json:{url:value}});const all=[...files,file];setFiles(all);await sessionFor(all);await select(file);}finally{setLoading(false);}
+  }
+  async function removeFile(file){
+    if(!confirm(`'${file.fileName}' 파일을 삭제할까요?\n원본과 이 파일의 메모·스탬프 배치가 함께 삭제되며 되돌릴 수 없습니다.`))return;
+    setNotice('');
+    // Delete failures (e.g. MEDIA_BUSY) are shown in the file panel so the current view stays usable.
+    try{await api('/api/v1/media/'+file.mediaId,{method:'DELETE'});}catch(e){setLeft(true);setNotice('삭제하지 못했습니다. '+(messages[e.message]||e.message));return;}
+    const index=files.findIndex(f=>f.mediaId===file.mediaId),remaining=files.filter(f=>f.mediaId!==file.mediaId);setFiles(remaining);
+    if(remaining.length)await sessionFor(remaining).catch(()=>{});else{sessionRef.current=null;history.replaceState(null,'','/viewer');}
+    if(currentRef.current?.mediaId!==file.mediaId)return;
+    if(remaining.length)return run(()=>select(remaining[Math.min(index,remaining.length-1)]));
+    abort.current?.abort();currentRef.current=null;setCurrent(null);setInfo(null);setPlayback(null);setDocument(null);setCrop(null);setSelected(null);setError('');setLoading(false);
   }
   function point(event){
     const rect=viewport.current.getBoundingClientRect(),r=-angle*Math.PI/180;
@@ -170,9 +192,9 @@ export default function App(){
     </header>
     <main className="workspace">
       {left&&<aside className="file-panel"><div className="panel-heading">파일 목록 <span className="count">{files.length}</span></div><p className={'list-caption'+(notice?' notice':'')} role={notice?'status':undefined}>{notice||'선택한 파일을 빠르게 살펴보세요'}</p><div className="file-list">
-        {files.map((file,index)=><button key={file.mediaId} className={'file-row'+(current?.mediaId===file.mediaId?' selected':'')} onClick={()=>run(()=>select(file))}>
+        {files.map((file,index)=><div key={file.mediaId} className="file-item"><button className={'file-row'+(current?.mediaId===file.mediaId?' selected':'')} onClick={()=>run(()=>select(file))}>
           <span className="file-thumb">{file.thumbnailUrl?<img src={file.thumbnailUrl} alt="" loading="lazy" decoding="async"/>:file.mediaType==='image'?'▧':file.mediaType==='video'?'▷':'♫'}<small>{String(index+1).padStart(2,'0')}</small></span><span className="file-description"><strong>{file.fileName}</strong><small>{file.originalMimeType.split('/')[1].toUpperCase()} · {bytes(file.sizeBytes)}</small><em>{file.mediaType==='image'?'이미지':file.mediaType==='video'?'동영상':'음성'}</em></span>
-        </button>)}{!files.length&&<div className="list-empty">▧<p>열린 파일이 없습니다</p></div>}
+        </button><button type="button" className="file-delete" title={file.fileName+' 삭제'} aria-label={file.fileName+' 삭제'} disabled={loading} onClick={()=>removeFile(file)}>×</button></div>)}{!files.length&&<div className="list-empty">▧<p>열린 파일이 없습니다</p></div>}
       </div></aside>}
       <section ref={viewport} className={'viewport tool-'+tool} aria-label="미디어 표시 영역" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onPointerLeave={()=>setLens(null)} onWheel={event=>{if(imageReady&&features.zoom)manualZoom(z=>clamp(z*(event.deltaY<0?1.1:1/1.1),.01,16));}}>
         <div className="stage-heading"><span>SIMPLEIMGVIEWER WORKSPACE</span><span>{info?info.coordinateWidth+' × '+info.coordinateHeight+' · 미리보기':current?.originalMimeType||''}</span></div>

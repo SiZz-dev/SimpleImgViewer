@@ -36,5 +36,7 @@ export class UploadCapacity {
   }
   check(key,bytes){const lease=this.leases.get(key);requireThat(lease?.original&&!lease.committed&&bytes>0&&bytes<=lease.bytes,500,'INVALID_UPLOAD_RESERVATION');}
   commit(key,bytes){this.check(key,bytes);const lease=this.leases.get(key);this.used+=bytes;this.reserved-=lease.bytes;lease.committed=true;}
+  // A deleted original's committed bytes; only called after its source file is actually gone.
+  remove(bytes){requireThat(Number.isSafeInteger(bytes)&&bytes>=0&&bytes<=this.used,500,'INVALID_CAPACITY_RELEASE');this.used-=bytes;}
   release(key){const lease=this.leases.get(key);requireThat(lease,500,'INVALID_UPLOAD_RESERVATION');this.diskReserved-=lease.bytes;if(lease.original&&!lease.committed)this.reserved-=lease.bytes;this.leases.delete(key);}
 }

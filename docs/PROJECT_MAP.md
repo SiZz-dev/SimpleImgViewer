@@ -120,10 +120,12 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | GET `/api/v1/viewer/bootstrap` | viewer/routes | config만 읽음, CSRF 토큰 반환 | 응답에 features·limits 포함 | 초기 `useEffect` |
 | POST `/api/v1/viewer/sessions` | viewer/routes | `ViewerSessions.create` → `store.require`×N → `scan` → `atomicJson` | – | `sessionFor` |
-| GET `/api/v1/viewer/sessions/:id` | viewer/routes | `ViewerSessions.view` → `store.require` → `media.public` | – | `?sessionId=` 진입 |
+| GET `/api/v1/viewer/sessions/:id` | viewer/routes | `ViewerSessions.view` → `store.require`(404 파일은 건너뜀) → `media.public` | – | `?sessionId=` 진입 |
+| PATCH `/api/v1/viewer/sessions/:id` | viewer/routes | `ViewerSessions.update` → 검증 → `atomicJson` (만료 불변) | – | `saveSession`(선택·일시 정지·pagehide) |
 | POST `/api/v1/media` | media/routes | `admission` → `receiveUpload` → `store.register` → `store.releaseTemp` | `features[mediaType]` | `openFiles` |
 | POST `/api/v1/media/import-url` | media/routes | `admission` → `importRemote` → `store.register` | `remote.enabled` | `openUrl`, `?url=` 진입 |
 | GET `/api/v1/media/:id` | media/routes | `store.require` → `media.public` | `features[mediaType]` | `?mediaId=` 진입 |
+| DELETE `/api/v1/media/:id` | media/routes | `MediaService.remove` → `MediaStore.remove` (5.8) | `features[mediaType]` | `removeFile` |
 | GET `/api/v1/media/:id/pages/:page` | media/routes | `MediaService.page` (5.2) | image | `select` |
 | GET `/api/v1/media/:id/status`, POST `…/previews` | media/routes | `MediaService.page`와 동일(`?page=`) | image | 사용 안 함 |
 | GET `/api/v1/media/:id/sources/:sourceId/{content,thumbnail}` | media/routes | `MediaService.source` → PNG `sendFile` | image | `<img src>`·썸네일·돋보기 |
@@ -254,6 +256,25 @@ GET …/playback/sources/:sourceId/content → PlaybackService.source → 크기
 
 - `/viewer?sessionId=` → 세션 복원(목록·테마·좌측 패널·선택 파일·시작 페이지/시간), `/viewer?mediaId=` → 단일 파일, `/viewer?url=` 또는 `#url=` → URL 수신 후 주소창 정리.
 - 세션 파일 `sessions/<uuid>.json`, TTL 기본 30분, 기동·생성 시 만료분 삭제, 최대 1000개.
+- 위치 저장: `App.saveSession` → `PATCH /viewer/sessions/:id` → `ViewerSessions.update`(선택 파일·페이지·시간만, `exclusive` 직렬화, 만료 불변).
+  - 저장 시점: `select` 성공 직후, `mediaProps.onPause`(끝까지 재생했으면 0), `pagehide`(재생 중이면 `keepalive` 요청).
+  - 세션 id는 `sessionRef`, 현재 파일은 `currentRef`가 들고 있습니다.
+- 파일을 추가하거나 삭제하면 `sessionFor()`가 새 세션을 만들고 주소를 바꿉니다(기존 세션은 갱신하지 않음).
+
+### 5.8 미디어 삭제
+
+```
+App.removeFile(file) → confirm → DELETE /api/v1/media/:id
+MediaService.remove(id, actor)
+  store.require → running(이미지)·playback.running 키가 mediaVersion으로 시작하면 409 MEDIA_BUSY
+  MediaStore.remove(record)
+    originals/<id>/source unlink (EBUSY/EPERM/EACCES → 409 MEDIA_BUSY, 무변경) → UploadCapacity.remove(size)
+    record.json(+record.json.<uuid>.tmp) → rmdir
+    editing/<id>-<page>.json(+임시) 삭제
+  derived 캐시는 건드리지 않음(접근 404, 시작 시 기간/용량 정리)
+화면: 목록 제거 → sessionFor(남은 파일) → 보던 파일이면 다음 파일 select, 없으면 빈 화면
+실패: 파일 목록 위 notice 표시(현재 화면 유지)
+```
 
 ---
 
@@ -261,7 +282,7 @@ GET …/playback/sources/:sourceId/content → PlaybackService.source → 크기
 
 ```
 storage.root (기본 .runtime/node/media)
-├─ originals/<mediaId>/source, record.json        원본(자동 삭제 없음) + 메타(tenant/owner/sha256/mediaVersion)
+├─ originals/<mediaId>/source, record.json        원본(자동 삭제 없음, DELETE API로만 삭제) + 메타(tenant/owner/sha256/mediaVersion)
 ├─ derived/
 │  ├─ <mediaId>-<sourceId>/facts.json, preview.png, thumbnail.png   이미지 캐시
 │  ├─ playback-<sourceId>/facts.json, playback                     재생 캐시
@@ -309,6 +330,9 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | `*-lpac-*-request.mjs` (SIVLPAC1 바이너리 형식) | `native/process-job/lpac-request.h`, lpac-image.cpp, lpac-media.cpp | 네이티브 재빌드 + LPAC 전송 테스트 |
 | sourceId 공식 / 캐시 디렉터리 이름 | MediaService(page/source), PlaybackService(convert/source), CacheStorage 정규식 | cache-storage, server.test |
 | 오류 코드 추가·변경 | App.jsx `messages` | 화면 오류 표시 |
+| 편집 문서 이름 `editing/<mediaId>-<page>.json` | `EditingService.docPath`, `MediaStore.remove`(삭제용 정규식), `atomicJson` 임시 이름 | server.test 삭제 테스트 |
+| 원본 폴더 구성(`source`, `record.json`, 임시 파일) | `MediaStore.register/remove`, `UploadCapacity.init`(낯선 파일이 있으면 기동 거절) | upload-capacity, server.test 삭제 테스트 |
+| 세션 필드 | `ViewerSessions.create/update/view`, App.jsx 복원·`saveSession` | sessions.test, server.test 세션 테스트 |
 | 한도 값(주석 200, 메모 500, 스탬프 100/2MiB, 자르기 8MP) | editing.mjs, editing/routes, viewer/routes bootstrap, lpac-bindings, App.jsx(maxLength) | server.test |
 | `settings.mjs` 키 | example.yml, 해당 서비스, `backend/test/system/config/*` | settings 테스트 + 기동 확인 |
 | `native/process-job/main.cpp` | 개발 모드 manifest 해시(`PROCESS_JOB_BUILD_STALE`) | `scripts/build-process-job.ps1 -TestTools` 후 전체 테스트 |
@@ -323,7 +347,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 
 | 파일 | 주 대상 | 비고 |
 | --- | --- | --- |
-| server.test.mjs (20) | application 전체 HTTP: 업로드·URL·페이지·주석·반출·세션·보안 헤더·CSRF·기능 설정 | 통합 회귀의 중심 |
+| server.test.mjs (23) | application 전체 HTTP: 업로드·URL·페이지·주석·반출·세션(생성·갱신)·삭제·보안 헤더·CSRF·기능 설정 | 통합 회귀의 중심 |
 | cache-storage.test.mjs (6) | CacheStorage | 루트에 있음(기능 폴더 미정리) |
 | image-job.test.mjs (4) | ImageEngine + Job 실행기 | 네이티브 필요 |
 | playback-native.test.mjs | 실제 FFmpeg 재생 | `SIV_NATIVE_TESTS=1` |
@@ -333,7 +357,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | playback/service/lpac-media-transport | LpacMediaTransport | |
 | system/config/* | lpac-settings, runtime-verifier-settings(미커밋) | |
 
-- 2026-11-17 실행 결과: `SIV_NATIVE_TESTS=1`에서 **142/142 통과**(약 26초). 환경 변수가 없으면 네이티브 16개를 건너뜁니다.
+- 2026-11-17 실행 결과: `SIV_NATIVE_TESTS=1`에서 **145/145 통과**(약 27초). 환경 변수가 없으면 네이티브 16개를 건너뜁니다.
 - 화면(React) 단위 테스트는 없습니다. 화면 검증은 `scripts/test-node-viewer.mjs`(Playwright + Chrome, `IMAGEGATE_NODE_MODULES`/`IMAGEGATE_BROWSER` 환경 변수 필요, Playwright는 의존성에 없음)뿐입니다.
 
 ### 9.2 scripts 분류
