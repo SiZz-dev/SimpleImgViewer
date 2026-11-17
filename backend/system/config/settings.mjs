@@ -8,7 +8,7 @@ export async function settings({development=false,overrides={}}={}){
   try{supplied=parse(await fs.readFile(process.env.SIMPLEIMGVIEWER_CONFIG||'config/simpleimgviewer.yml','utf8'),{uniqueKeys:true,maxAliasCount:0})||{};}catch(e){if(e.code!=='ENOENT')throw e;}
   const defaults={server:{host:'127.0.0.1',port:8080,allowedHosts:['localhost','127.0.0.1','[::1]','192.168.0.86']},storage:{root:'.runtime/node/media',maxOriginalBytes:10737418240,originalScanLimit:10000},upload:{maxBytes:104857600,minFreeBytes:536870912},
     processing:{concurrency:2,timeoutMs:30000,maxPixels:16000000,previewEdge:1600,jobLauncher:'',jobLauncherSha256:'',jobMemoryMiB:512,jobCpuSeconds:30,jobCpuRatePercent:100},
-    runtimeVersions:{enabled:false,root:'.runtime/node/runtimes',maxBytes:1073741824,maxVersions:10},
+    runtimeVersions:{enabled:false,root:'.runtime/node/runtimes',maxBytes:1073741824,maxVersions:10,verification:{mode:'main',maxQueue:8,timeoutMs:30000}},
     isolation:{mode:'windows-job',root:'.runtime/node/lpac',imageLauncher:'',imageLauncherSha256:'',mediaLauncher:'',mediaLauncherSha256:'',maxEntries:40,recoveryEnabled:true,recoveryMinAgeMs:60000,recoveryIntervalMs:60000,scanLimit:200},
     sessions:{cleanupEnabled:true,ttlMs:1800000,maxEntries:1000,scanLimit:10000},
     temporary:{recoveryEnabled:true,minAgeMs:3600000,scanLimit:10000},
@@ -18,7 +18,11 @@ export async function settings({development=false,overrides={}}={}){
     playback:{enabled:false,ffmpeg:'',ffprobe:'',ffmpegSha256:'',ffprobeSha256:'',jobLauncher:'',jobLauncherSha256:'',jobMemoryMiB:1024,jobCpuSeconds:120,jobCpuRatePercent:100},development};
   const result={...defaults};
   for(const source of [supplied,overrides])for(const [key,value] of Object.entries(source)){
-    if(key==='runtimeVersions')requireThat(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(name=>['enabled','root','maxBytes','maxVersions'].includes(name)),400,'INVALID_CONFIGURATION');
+    if(key==='runtimeVersions'){
+      requireThat(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(name=>['enabled','root','maxBytes','maxVersions','verification'].includes(name)),400,'INVALID_CONFIGURATION');
+      if(Object.hasOwn(value,'verification'))requireThat(value.verification&&typeof value.verification==='object'&&!Array.isArray(value.verification)&&Object.keys(value.verification).every(name=>['mode','maxQueue','timeoutMs'].includes(name)),400,'INVALID_CONFIGURATION');
+      result.runtimeVersions={...result.runtimeVersions,...value,verification:{...result.runtimeVersions.verification,...value.verification}};continue;
+    }
     if(key==='isolation')requireThat(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(name=>Object.hasOwn(defaults.isolation,name)),400,'INVALID_CONFIGURATION');
     requireThat(key in defaults,400,'INVALID_CONFIGURATION');result[key]=typeof defaults[key]==='object'?{...result[key],...value}:value;
   }
@@ -54,6 +58,9 @@ export async function settings({development=false,overrides={}}={}){
   requireThat(Array.isArray(result.remote.allowedPrefixes)&&result.remote.allowedPrefixes.length<=16,400,'INVALID_CONFIGURATION');
   requireThat(Array.isArray(result.server.allowedHosts)&&result.server.allowedHosts.length>0&&result.server.allowedHosts.length<=32&&result.server.allowedHosts.every(host=>typeof host==='string'&&/^[a-z0-9.:[\]-]{1,253}$/i.test(host)),400,'INVALID_CONFIGURATION');
   requireThat(typeof result.runtimeVersions.enabled==='boolean'&&typeof result.runtimeVersions.root==='string'&&result.runtimeVersions.root.length>0&&integer(result.runtimeVersions.maxBytes,1048576,2**40)&&integer(result.runtimeVersions.maxVersions,1,1000),400,'INVALID_CONFIGURATION');
+  const verification=result.runtimeVersions.verification;
+  requireThat(['main','worker'].includes(verification.mode)&&integer(verification.maxQueue,0,32)&&integer(verification.timeoutMs,1000,120000),400,'INVALID_CONFIGURATION');
+  if(verification.mode==='worker')requireThat(result.runtimeVersions.enabled,400,'RUNTIME_VERIFIER_REQUIRES_MANAGED_RUNTIMES');
   result.runtimeVersions.root=path.resolve(result.runtimeVersions.root);
   if(result.runtimeVersions.enabled)for(const forbidden of [path.resolve(result.storage.root),path.resolve('dist')])requireThat(result.runtimeVersions.root!==forbidden&&!result.runtimeVersions.root.startsWith(forbidden+path.sep)&&!forbidden.startsWith(result.runtimeVersions.root+path.sep),400,'INVALID_RUNTIME_ROOT');
   result.storage.root=path.resolve(result.storage.root);

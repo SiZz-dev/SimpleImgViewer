@@ -58,6 +58,8 @@ export async function createApplication(options={}){
   app.use((req,res)=>res.status(404).json({code:'NOT_FOUND'}));
   app.use((error,_req,res,_next)=>{if(res.headersSent)return res.destroy();const status=error instanceof ApiError?error.status:error.type==='entity.too.large'?413:error.code==='ENOENT'||error.statusCode===404?404:error instanceof SyntaxError?400:500;res.status(status).type('application/json').json({code:error instanceof ApiError?error.code:status===413?'REQUEST_TOO_LARGE':status===404?'NOT_FOUND':status===400?'INVALID_REQUEST':'INTERNAL_ERROR'});});
   const server=http.createServer({maxHeaderSize:16384},app);server.requestTimeout=30000;server.headersTimeout=15000;server.keepAliveTimeout=5000;
-  return {app,server,config,store,media,editing,playback,images,runtimes,async listen(){await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(config.server.port,config.server.host,resolve);});return server.address();},async close(){const stopped=new Promise(resolve=>server.close(resolve));server.closeAllConnections();await Promise.all([images.close(),playback.close(),stopped]);await runtimes?.close();await store.close();}};
+  let closing;
+  const close=()=>closing??=(async()=>{const stopped=new Promise(resolve=>server.close(resolve));server.closeAllConnections();await Promise.all([images.close(),playback.close(),stopped]);await runtimes?.close();await store.close();})();
+  return {app,server,config,store,media,editing,playback,images,runtimes,async listen(){try{await new Promise((resolve,reject)=>{const failed=error=>reject(error);server.once('error',failed);server.listen(config.server.port,config.server.host,()=>{server.off('error',failed);resolve();});});return server.address();}catch(error){await close();throw error;}},close};
   }catch(error){await Promise.all([images?.close(),playback?.close(),transports?.image?.close(),transports?.media?.close()]);await runtimes?.close();await store.close();throw error;}
 }

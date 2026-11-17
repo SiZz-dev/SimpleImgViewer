@@ -4,7 +4,7 @@ import {runtimeDescriptor} from '../util/runtime-inventory.mjs';
 import {ApiError,requireThat,integer} from '../../system/util/errors.mjs';
 const workerUrl=new URL('../util/runtime-verify-worker.mjs',import.meta.url);
 const codes={RUNTIME_TAMPERED:500,UNSAFE_RUNTIME_PATH:500,INVALID_RUNTIME_DESCRIPTOR:400,INVALID_RUNTIME_DIGEST:400,ENOENT:404,ENOTDIR:500,EACCES:503,EPERM:503,EIO:503,EMFILE:503,ENFILE:503,RUNTIME_VERIFY_FAILED:503};
-// Internal candidate only. Application/settings do not instantiate this pool.
+// Managed runtime verification only; the application keeps main mode by default.
 export class RuntimeVerifierPool {
  constructor({threads=1,maxQueue=8,timeoutMs=30000,...unknown}={}){
   requireThat(!Object.keys(unknown).length&&integer(threads,1,2)&&integer(maxQueue,0,32)&&integer(timeoutMs,1,120000),400,'INVALID_RUNTIME_VERIFIER_POLICY');

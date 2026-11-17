@@ -2,7 +2,7 @@
 
 ## Node LPAC 설치 선택 후속
 
-conversion/service.RuntimeVerifierPool은 시험 주입용 전체 트리 검증 worker 풀의 고정 코드·입장·FIFO·deadline·종료 수명만 담당한다. conversion/util.runtime-verify-worker가 descriptor를 재검증하고 기존 verifyRuntimeTree를 실행한다. thread exit 전 active 실패를 반환하지 않고 close는 진행 중 검증을 기다린다. application factory/YAML에는 아직 연결하지 않았다. [후보 계약·대조 결과](RUNTIME_VERIFIER_WORKER.md)를 따른다.
+conversion/service.ManagedRuntimes가 설치 runtimeVersions.verification으로 main/worker를 선택하고 worker1개 pool·진행 중 acquire를 소유한다. RuntimeVerifierPool은 고정 코드·입장·FIFO·deadline·exit 대기를, util.runtime-verify-worker는 descriptor 재검증·기존 전체 검사를 담당한다. application.close는 HTTP/변환 작업·참조를 먼저 종료한 뒤 manager/pool/catalog/store를 정리하고, 부분 초기화·listen 실패도 정리한다. 기본값은 main이다. [설정·수명과 실제 인수](RUNTIME_VERIFIER_CONFIGURATION.md)를 따른다.
 
 scripts/test-runtime-responsiveness는 별도 Node HTTP 클라이언트 fixture와 격리된 LPAC YAML 서버로 유휴/캐시 페이지3개 동시 요청/FFmpeg 검증 포화 부하를 비교한다. 운영 API·설정·검증기에는 계측 경로나 thread를 추가하지 않는다. [응답성 측정 범위와 한계](RUNTIME_RESPONSIVENESS.md)를 따른다.
 

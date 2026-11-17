@@ -17,7 +17,10 @@ const result={passed:false,mode,trial,host:{platform:process.platform,release:os
 const previous=process.env.SIMPLEIMGVIEWER_CONFIG;let application,client,monitor,memoryTimer,pool;let stopMedia=true,mediaWork;
 const summary=values=>{const sorted=values.toSorted((a,b)=>a-b);assert.ok(sorted.length);return {samples:sorted.length,medianMs:+((sorted[Math.floor((sorted.length-1)/2)]+sorted[Math.floor(sorted.length/2)])/2).toFixed(2),p95Ms:+sorted[Math.ceil(sorted.length*.95)-1].toFixed(2),maxMs:+sorted.at(-1).toFixed(2)};};
 try{
- assert.ok(process.env.SIV_SPEED_YAML,'Set SIV_SPEED_YAML to an approved synthetic LPAC fixture');const config=parse(await fs.readFile(process.env.SIV_SPEED_YAML,'utf8'));assert.equal(config.isolation.mode,'lpac');assert.equal(config.runtimeVersions.enabled,true);assert.equal(config.playback.enabled,true);
+ assert.ok(process.env.SIV_SPEED_YAML,'Set SIV_SPEED_YAML to an approved synthetic LPAC fixture');const config=parse(await fs.readFile(process.env.SIV_SPEED_YAML,'utf8'));
+ // This comparison owns the verification path instead of inheriting an installed pool.
+ config.runtimeVersions.verification={mode:'main',maxQueue:8,timeoutMs:30000};
+ assert.equal(config.isolation.mode,'lpac');assert.equal(config.runtimeVersions.enabled,true);assert.equal(config.playback.enabled,true);
  const root=path.resolve('build/acceptance/runtime-responsive-'+randomUUID());await fs.mkdir(root,{recursive:true});config.server={host:'127.0.0.1',port:0};config.storage.root=path.join(root,'store');config.isolation.root=path.join(root,'pool');config.upload={...config.upload,minFreeBytes:0};
  for(const kind of ['image','media']){const manifest=JSON.parse(await fs.readFile('build/lpac-'+kind+'/launcher.json','utf8'));config.isolation[kind+'Launcher']=manifest.executable;config.isolation[kind+'LauncherSha256']=manifest.sha256;}
  const yaml=path.join(root,'fixture.yml');await fs.writeFile(yaml,stringify(config));process.env.SIMPLEIMGVIEWER_CONFIG=yaml;application=await createApplication({development:true});const address=await application.listen(),base='http://127.0.0.1:'+address.port;

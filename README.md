@@ -72,6 +72,8 @@ LPAC 격리를 선택하려면 승인된 관리형 런타임과 실행기를 준
 
 동시 열람과 FFmpeg 전체 검증을 겹친 포화 시험에서 일반 API p95는 약8ms였으나 캐시 페이지는 약2.95초로 지연됐습니다. [응답성 검증 결과와 다음 비교 과제](docs/RUNTIME_RESPONSIVENESS.md)에 조건과 한계를 정리했습니다.
 
+이미 승인 런타임을 게시·활성화했다면 YAML의 `runtimeVersions.verification.mode: worker`로 검증 thread1개를 선택할 수 있습니다. 기본값은 `main`이며 LPAC·인증 선택과 독립적입니다. [설정·기동/종료·오류 응답과 실제 검증](docs/RUNTIME_VERIFIER_CONFIGURATION.md)을 확인하세요.
+
 [config/simpleimgviewer.example.yml](config/simpleimgviewer.example.yml)을 참고해 `config/simpleimgviewer.yml`을 생성하거나 `SIMPLEIMGVIEWER_CONFIG`로 다른 파일을 지정합니다. 실제 설정은 Git에서 제외합니다. 기능 사용 여부·파일 생성 경로·업로드/픽셀/동시 처리/시간 제한·URL 허용 목록·FFmpeg 경로와 해시를 설정합니다. `--dev`는 YAML이나 사용자 헤더로 켤 수 없습니다.
 
 개발 모드에서 별도 playback 설정이 없으면 설치 도구가 생성한 `build/native-modules/imagegate.native.yml`의 검증된 FFmpeg 경로/해시를 읽습니다. `clean`으로 이 파일을 삭제했다면 설치 도구를 다시 실행해야 합니다. sharp/libvips는 Node 의존성으로 준비되며 web SDK의 CLI를 자동 실행하지 않습니다.
@@ -126,7 +128,7 @@ node scripts/build-web.mjs
 node scripts/audit-node-licenses.mjs
 ```
 
-전체 Node·실제 네이티브 테스트130개와 기본 서버 Chrome13개 시나리오를 검증합니다. 실제 브라우저 도구는 `scripts/test-node-viewer.mjs`이며 Playwright/Chrome 경로를 지정합니다. 이전 Java 시험 수를 현재 통과 수에 합산하지 않습니다. [기존 문서의 역사적 범위](docs/LEGACY_SOURCE_REMOVAL.md)를 참고하세요.
+전체 Node·실제 네이티브 테스트140개와 기본 서버 Chrome13개 시나리오를 검증합니다. worker 선택 LPAC 서버의 Chrome6개·미디어/실패 인수는 `scripts/test-runtime-verifier-installation.mjs`를 사용합니다. 실제 브라우저 도구에는 Playwright/Chrome 경로를 지정합니다. 이전 Java 시험 수를 현재 통과 수에 합산하지 않습니다. [기존 문서의 역사적 범위](docs/LEGACY_SOURCE_REMOVAL.md)를 참고하세요.
 
 라이선스 식별 결과는 `build/reports/node-licenses/inventory.json`과 고지 원문에 기록합니다. sharp Windows 패키지에는 Apache-2.0과 LGPL-3.0-or-later 조건이 함께 적용되고, 빌드 도구에는 MPL-2.0 구성요소도 있습니다. 원문·정확한 전이 소스·교체/소스 제공 조건과 native 취약점 검토가 남아 있으므로 `distributionReady=false`를 유지합니다. 라이선스 선언 식별을 최종 재배포 승인으로 취급하지 않습니다.
 
@@ -134,6 +136,6 @@ node scripts/audit-node-licenses.mjs
 
 Windows Job을 기본으로 사용하며 승인된 관리형 런타임에서 YAML로 LPAC을 선택할 수 있습니다. [설치와 부하 검증](docs/LPAC_INSTALLATION_LOAD.md), [폰트](docs/LPAC_NOTE_FONT.md), [중단 작업 회수](docs/LPAC_WORK_RECOVERY.md), [전체 검증과 제한 병렬 읽기](docs/RUNTIME_VERIFICATION_PROFILE.md)를 참고하세요.
 
-[검증 전용 Worker Thread와 FIFO 대조 비교](docs/RUNTIME_VERIFIER_WORKER.md)를 완료했습니다. 혼합 부하의 thread1 후보는 페이지 지연을 줄였으나 추가 메모리와 단독 부하 지연이 있어 기본 실행은 유지합니다. 다음 작업은 thread1의 명시적 설정·서버 종료 수명 연결과 편집·미디어 인수입니다. HEIC/JPEG2000·고해상도 타일, 업무 표본·전용 블랙박스 데이터, 운영 인증·파일별 권한, 운영 Windows/서비스 계정 인수와 최종 배포 검토는 남아 있습니다.
+[Worker Thread·FIFO 비교](docs/RUNTIME_VERIFIER_WORKER.md)와 [명시적 YAML 선택·서버 수명 연결](docs/RUNTIME_VERIFIER_CONFIGURATION.md)을 완료했습니다. 추가 메모리와 단독 부하 지연이 있어 기본 검증은 main을 유지합니다. 다음 작업은 worker 선택 상태의 장시간 혼합 부하·종료 반복 검증입니다. HEIC/JPEG2000·고해상도 타일, 업무 표본·전용 블랙박스 데이터, 운영 인증·파일별 권한, 운영 Windows/서비스 계정 인수와 최종 배포 검토는 남아 있습니다.
 
 최종 기능·전체 운영 검증 및 라이선스 배포 검토 전에는 설치 ZIP을 생성하지 않습니다. 상세 이력은 [Node/React 이관 기록](docs/NODE_REACT_MIGRATION.md)을 따릅니다.

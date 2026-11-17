@@ -77,6 +77,16 @@ runtimeVersions:
   root: .runtime/node/runtimes
   maxBytes: 1073741824
   maxVersions: 10
+  verification:
+    # main remains the default. worker uses one fixed verification thread;
+    # runtimeVersions.enabled must be true. No fallback if the worker fails.
+    # This covers acquire/lease verification; catalog publish/activate/recovery
+    # retain their existing full checks. It does not select LPAC or authentication.
+    mode: main
+    # Waiting proofs, excluding the one active thread. 0..32.
+    maxQueue: 8
+    # Admission through completion, including queue wait. 1000..120000ms.
+    timeoutMs: 30000
 isolation:
   # windows-job remains the default. lpac requires runtimeVersions.enabled: true,
   # activated verified snapshots, and font profile when edited notes are enabled.

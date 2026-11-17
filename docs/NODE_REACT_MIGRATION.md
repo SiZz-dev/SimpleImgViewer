@@ -1,5 +1,7 @@
 # Node.js + React 이관 기록
 
+2026-11-16 검증 worker 설치 연결: runtimeVersions.verification.mode(main/worker)와 대기열/deadline을 YAML에 추가했다. worker는 고정1개이며 ManagedRuntimes가 초기화·acquire·폰트 승인·close 수명을 소유한다. 서버 중복 close와 포트 충돌 정리도 연결했다. 실제 LPAC/Windows Job 변환, worker LPAC Chrome6개·4종 미디어·429/503/504·최종 게시 실패 보존을 확인했다. 전체 Node/네이티브140개, 기본 Chrome13개·React 빌드·npm90개 라이선스 기준선을 통과했다. [설치와 종료 계약](RUNTIME_VERIFIER_CONFIGURATION.md)을 따르며 다음은 worker 선택 장시간 혼합 부하·종료 반복 검증이다.
+
 2026-11-16 검증 전용 Worker Thread 후보 구현·비교: 고정 worker·최대2개 thread·제한 FIFO·deadline·exit 대기·참조/회수 경쟁을 검증했다. 실제 LPAC 서버의 두 차례 혼합 부하에서 thread1 페이지 p95는 약1.3초로 기본 약3.1초보다 짧았다. 메인 FIFO 대조군은 약1.8초였으며, 추가 메모리와 이미지 단독 지연 증가도 확인해 일반 서버 기본값은 유지한다. 최종 Node/네이티브130개(실패/건너뜀0), 기본 Chrome13개·React 빌드·npm90개 라이선스 기준선을 통과했다. [후보 계약·측정 한계](RUNTIME_VERIFIER_WORKER.md)를 따른다. 다음은 thread1의 명시적 설정·서버 수명 연결과 실제 편집·미디어 인수다.
 
 현재 상태(2026-11-16): 사용자 요청으로 Spring Boot/Java/Gradle 소스·빌드·전용 도구를 해시 검증 로컬 보관 후 제거했다. 아래의 Java 소스 보존·Gradle 실행 설명은 선행 단계 기록이다. 현재 실행·설정·복원 범위는 [LEGACY_SOURCE_REMOVAL.md](LEGACY_SOURCE_REMOVAL.md)와 README를 따른다. 이 정리는 모든 기존 기능의 이관 완료나 최종 배포 승인을 의미하지 않는다.

@@ -13,6 +13,9 @@ const previous=process.env.SIMPLEIMGVIEWER_CONFIG;let application;
 try{
  assert.ok(process.env.SIV_SPEED_YAML,'Set SIV_SPEED_YAML to an approved synthetic LPAC fixture YAML');
  const config=parse(await fs.readFile(process.env.SIV_SPEED_YAML,'utf8'));
+
+ // This comparison owns the verification path instead of inheriting an installed pool.
+ config.runtimeVersions.verification={mode:'main',maxQueue:8,timeoutMs:30000};
  assert.equal(config.isolation.mode,'lpac');assert.equal(config.runtimeVersions.enabled,true);
  const root=path.resolve('build/acceptance/runtime-speed-'+randomUUID());await fs.mkdir(root,{recursive:true});
  config.server={host:'127.0.0.1',port:0};config.storage.root=path.join(root,'store');config.isolation.root=path.join(root,'pool');config.upload={...config.upload,minFreeBytes:0};
