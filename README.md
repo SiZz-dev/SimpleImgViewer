@@ -210,6 +210,8 @@ node scripts/audit-node-licenses.mjs
 
 ## 남은 작업
 
+현재 진행 위치, 다른 PC에서 이어서 작업하는 절차, 남은 항목 전체는 [docs/REMAINING_WORK.md](docs/REMAINING_WORK.md)에 있습니다. 구조와 호출 체인은 [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md)를 보세요.
+
 Windows Job을 기본으로 사용하며 승인된 관리형 런타임에서 YAML로 LPAC을 선택할 수 있습니다. [설치와 부하 검증](docs/LPAC_INSTALLATION_LOAD.md), [폰트](docs/LPAC_NOTE_FONT.md), [중단 작업 회수](docs/LPAC_WORK_RECOVERY.md), [전체 검증과 제한 병렬 읽기](docs/RUNTIME_VERIFICATION_PROFILE.md)를 참고하세요.
 
 [Worker Thread·FIFO 비교](docs/RUNTIME_VERIFIER_WORKER.md)와 [명시적 YAML 선택·서버 수명 연결](docs/RUNTIME_VERIFIER_CONFIGURATION.md)을 완료했습니다. 추가 메모리와 단독 부하 지연이 있어 기본 검증은 main을 유지합니다. 다음 작업은 worker 선택 상태의 장시간 혼합 부하·종료 반복 검증입니다. HEIC/JPEG2000·고해상도 타일, 업무 표본·전용 블랙박스 데이터, 운영 인증·파일별 권한, 운영 Windows/서비스 계정 인수와 최종 배포 검토는 남아 있습니다.

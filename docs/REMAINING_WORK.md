@@ -15,8 +15,46 @@
 | React 빌드 (`scripts/build-web.mjs`) | 성공, 라이선스 기준선 npm 90개 통과, `distributionReady=false` |
 | API 스모크 (임시 저장소, 개발 모드) | health·bootstrap·업로드 201·페이지 200(최초 349ms / 캐시 12ms)·미리보기/썸네일 200·메모 201·편집본 반출 200·CSRF 누락 403 |
 | 실제 브라우저 시나리오 | Playwright 시나리오(`scripts/test-node-viewer.mjs`)는 실행하지 않음. 11-17 기능 설정 수정은 앱 내장 브라우저로 직접 확인(4절 완료 기록) |
-| Git | 11-17 미커밋 작업과 이 문서를 `f88d8e0`·`80a806b`로 커밋·푸시함 |
+| Git | 11-17 미커밋 작업과 이 문서를 `f88d8e0`·`80a806b`로 커밋·푸시함. 11-19 UX 리뉴얼 1~4단계 `fb2c16f`, 5단계 준비 `0fd952f` 푸시 |
 | 새 PC 설치 재현 (11-17) | 새 클론에서 README 「설치」 순서(Node·pnpm·LLVM-MinGW·Job 실행기·FFmpeg)로 기본 129 통과/16 건너뜀, `SIV_NATIVE_TESTS=1` 145/145 통과. Windows CRLF 체크아웃이 lockfile 해시를 깨던 문제는 `.gitattributes` LF 고정(`fcd982b`)으로 해결. LLVM-MinGW는 설치 스크립트 없이 README의 수동 다운로드·해시 대조 절차를 사용 |
+
+---
+
+## 다른 PC에서 이어서 작업하기
+
+2026-11-19 기준입니다. 작업을 이어받는 사람이나 AI 에이전트는 이 절부터 읽습니다. 작업이 진행되면 「지금 위치」를 갱신합니다.
+
+### 지금 위치
+
+- **진행 중:** UX 리뉴얼 5단계(사용성 확인). 진행안·테스트 서버·AI 파일럿·가설 7건 반영까지 끝났고(`0fd952f`), **실제 참가자 3~5명 테스트를 사용자가 진행할 차례**입니다.
+  - 진행 방법: [UX_USABILITY_TEST.md](UX_USABILITY_TEST.md) 2~6절
+  - 결과를 받으면 할 일: 과업별 성공률·SEQ를 정리하고, 새 문제를 U18부터 [UX_HEURISTIC_REVIEW.md](UX_HEURISTIC_REVIEW.md) 형식으로 기록한 뒤 고칠 순서를 제안합니다.
+- **그다음 후보**(사용자 승인 후 하나씩)
+  - UX 남은 항목: U1 업로드 진행 표시, U11 메모 크기 입력 안내, U12/C5 썸네일 선생성, H-h 자르기 손잡이(아래 「UX 리뉴얼」 표)
+  - 사용자 결정이 필요한 D1~D4(5절), 뷰잉 속도 C1~C3
+  - E8 Playwright 시나리오 실행 환경, E12 간헐 실패 테스트
+
+### 재개 절차
+
+1. 저장소를 클론하고 README 「설치 (새 PC)」 1~6단계를 실행합니다. 이미지만 볼 거라면 5단계(FFmpeg)는 건너뛰어도 되지만, 전체 테스트 145개와 동영상·음성 확인에는 필요합니다.
+2. 설치 확인 결과가 `SIV_NATIVE_TESTS=1` 145/145 통과, React 빌드 성공이면 이 PC와 같은 상태입니다.
+3. AI 에이전트(Claude Code 등)로 이어서 할 때는 저장소 루트에서 시작해 "이 프로젝트에서 하던 작업 이어서 하도록 해"라고 요청합니다. 에이전트는 다음 순서로 읽습니다.
+   1. AGENTS.md: 작업 규칙(단계별 승인, 상세 커밋 메시지, 테스트 서버 규칙)
+   2. 이 절
+   3. [PROJECT_MAP.md](PROJECT_MAP.md): 구조·호출 체인·영향도
+4. 화면을 고친 뒤에는 `node scripts/usability-test-server.mjs --port 18200`으로 빈 임시 저장소 서버를 띄워 브라우저로 확인합니다(PROJECT_MAP 11·12절).
+
+### Git에 없는 것 (PC마다 따로)
+
+| 항목 | 이 PC에서의 상태 | 새 PC에서 |
+| --- | --- | --- |
+| `.tools`, `node_modules`, `build`, `dist` | 설치·빌드 산출물 | README 설치 절차로 다시 만듭니다 |
+| `config/simpleimgviewer.yml` | 이 PC의 LAN 주소로 8080을 여는 설정만 있음 | 없어도 기본값(127.0.0.1)으로 동작합니다. LAN에서 열어야 할 때만 `simpleimgviewer.example.yml`을 복사해 `server.host`·`allowedHosts`를 그 PC 주소로 고칩니다 |
+| `.runtime/node/media` | 개발 실행(8080)으로 올린 미디어·메모 | 옮기지 않습니다. 업무 자료가 섞일 수 있어 저장소·클라우드로 복사하지 않습니다 |
+| `.runtime/legacy-source-backups` | Java 소스 로컬 보관본 | 옮기지 않습니다([LEGACY_SOURCE_REMOVAL.md](LEGACY_SOURCE_REMOVAL.md)) |
+| `build/playback-fixtures` | 예전 Java 통합 시험이 만든 3초 합성 MP4·WAV | 지금은 만드는 스크립트가 없습니다. 사용성 서버는 이 폴더가 없으면 동영상·음성 표본만 빼고 시작합니다. 재생 확인에는 직접 준비한 짧은 MP4·WAV를 씁니다 |
+| AI 에이전트 메모리 | 사용자 요청 작업 규칙 2개 | AGENTS.md 「작업 방식」에 옮겼으므로 따로 옮길 필요가 없습니다 |
+| 로컬 브랜치(`ux-renewal-step4/5` 등 5개) | 모두 main에 병합됨, 원격에는 main만 있음 | 필요 없습니다. main만 받으면 됩니다 |
 
 ---
 
