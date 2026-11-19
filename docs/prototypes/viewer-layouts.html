@@ -1,0 +1,485 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>뷰어 레이아웃 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: comparison controls on top, the scaled product mock in the middle, live measurements and criteria below.
+   Page chrome follows the viewer's theme; the mock uses SimpleImgViewer's own token proposal (UX_DESIGN_TOKENS.md). */
+:root{
+  --page-bg:#f3f5f9;--page-card:#ffffff;--page-fg:#18253b;--page-muted:#4b6080;--page-line:#d6deea;--page-accent:#2f58b0;--page-on-accent:#ffffff;--page-chip:#e2ebff;--page-good:#18794e;--page-warn:#9a5b00;--page-bad:#b42318;
+  --page-font:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page-bg:#0e131b;--page-card:#171e28;--page-fg:#eaf0fc;--page-muted:#a7b8d0;--page-line:#2b3749;--page-accent:#abc4ff;--page-on-accent:#13274a;--page-chip:#283f64;--page-good:#7fd6a4;--page-warn:#f5c26b;--page-bad:#ffab9f;color-scheme:dark}}
+:root[data-theme="dark"]{--page-bg:#0e131b;--page-card:#171e28;--page-fg:#eaf0fc;--page-muted:#a7b8d0;--page-line:#2b3749;--page-accent:#abc4ff;--page-on-accent:#13274a;--page-chip:#283f64;--page-good:#7fd6a4;--page-warn:#f5c26b;--page-bad:#ffab9f;color-scheme:dark}
+body{background:var(--page-bg);color:var(--page-fg);font-family:var(--page-font);font-size:14px;line-height:1.5;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.page{max-width:1240px;margin:0 auto;display:grid;gap:18px}
+h1{font-size:22px;margin:0;text-wrap:balance}
+.lede{margin:4px 0 0;color:var(--page-muted);max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:14px 16px}
+.control{display:grid;gap:6px;min-width:0}
+.control>span{font-size:12px;color:var(--page-muted);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--page-line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--page-fg);padding:7px 12px;cursor:pointer;border-right:1px solid var(--page-line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--page-accent);color:var(--page-on-accent);font-weight:600}
+.seg button:focus-visible,select:focus-visible{outline:2px solid var(--page-accent);outline-offset:2px}
+select{font:inherit;font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--page-line);background:var(--page-card);color:var(--page-fg)}
+.frame-wrap{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:12px;min-width:0}
+.frame-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-bottom:10px;font-size:13px;color:var(--page-muted)}
+.frame-head strong{color:var(--page-fg)}
+.stage-box{position:relative;overflow:hidden;margin:0 auto;border-radius:6px}
+.metrics{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--page-chip);color:var(--page-fg)}
+.chip.good{color:var(--page-good)}.chip.warn{color:var(--page-warn)}.chip.bad{color:var(--page-bad)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:18px}
+.card{background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:16px 18px;min-width:0}
+.card h2{font-size:16px;margin:0 0 8px}
+.card p,.card li{color:var(--page-muted);font-size:13px}
+.card ul{margin:6px 0 0;padding-left:18px}
+.table-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--page-line);vertical-align:top}
+th{font-size:12px;color:var(--page-muted);font-weight:600}
+td.good{color:var(--page-good);font-weight:600}td.warn{color:var(--page-warn);font-weight:600}td.bad{color:var(--page-bad);font-weight:600}
+.note{font-size:12px;color:var(--page-muted)}
+
+/* ---------- Product mock: tokens from UX_DESIGN_TOKENS.md ---------- */
+.mock{
+  --font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  --font-size-xs:12px;--font-size-sm:13px;--font-size-md:14px;--font-size-lg:16px;--font-size-xl:20px;
+  --size-icon-sm:16px;--size-icon-md:20px;--size-icon-lg:24px;--size-icon-hero:48px;
+  --space-0-5:2px;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
+  --radius-sm:4px;--radius-md:6px;--radius-lg:10px;--radius-xl:16px;--radius-full:999px;
+  --size-header:60px;--size-panel-left:244px;--size-panel-right:272px;--size-control:32px;
+  --color-note-bg:rgb(255 241 168 / .92);--color-note-text:#172234;--color-annotation-selected:#74a8ff;--color-crop-border:#b2d2ff;--color-crop-fill:rgb(141 184 255 / .15);
+  --color-bg:#0b1017;--color-surface:#171e28;--color-surface-raised:#202a38;--color-surface-sunken:#111925;--color-selected:#283f64;
+  --color-border:#2b3749;--color-border-strong:#7d9bcc;--color-text:#eaf0fc;--color-text-muted:#a7b8d0;--color-text-disabled:#64748b;
+  --color-accent:#abc4ff;--color-accent-solid:#c9d8ff;--color-on-accent:#13274a;--color-danger:#ffab9f;--color-success:#7fd6a4;--color-focus:#abc4ff;
+  --color-brand-bg:#263f62;--color-brand-fg:#b8d0ff;--color-scrim:rgb(11 16 23 / .75);--color-backdrop:rgb(3 7 13 / .8);
+  --shadow-sm:0 2px 6px rgb(0 0 0 / .25);--shadow-md:0 12px 30px rgb(0 0 0 / .35);--shadow-lg:0 20px 60px rgb(0 0 0 / .4);
+  position:absolute;top:0;left:0;transform-origin:0 0;overflow:hidden;display:flex;flex-direction:column;
+  background:var(--color-bg);color:var(--color-text);font-family:var(--font-family);font-size:var(--font-size-sm);line-height:1.5;
+}
+.mock[data-proto-theme="light"]{
+  --color-bg:#edf1f7;--color-surface:#ffffff;--color-surface-raised:#f0f3f8;--color-surface-sunken:#f7f9fc;--color-selected:#e2ebff;
+  --color-border:#d6deea;--color-border-strong:#5f7bab;--color-text:#18253b;--color-text-muted:#4b6080;--color-text-disabled:#76839a;
+  --color-accent:#2f58b0;--color-accent-solid:#2f58b0;--color-on-accent:#ffffff;--color-danger:#b42318;--color-success:#18794e;--color-focus:#2f58b0;
+  --color-brand-bg:#e2ebff;--color-brand-fg:#2f58b0;--color-scrim:rgb(255 255 255 / .85);--color-backdrop:rgb(24 37 59 / .4);
+  --shadow-sm:0 1px 3px rgb(24 37 59 / .12);--shadow-md:0 8px 24px rgb(24 37 59 / .12);--shadow-lg:0 16px 48px rgb(24 37 59 / .16);
+}
+.mock[data-size="14"]{--font-size-sm:14px;--font-size-md:15px}
+.mock[data-device="desktop"]{width:1440px;height:900px}
+.mock[data-device="mobile"]{width:375px;height:812px}
+.mock *{box-sizing:border-box}
+.mock button,.mock input,.mock select,.mock textarea{font:inherit;color:inherit}
+.mock svg.i{width:var(--size-icon-md);height:var(--size-icon-md);fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mock svg.i.sm{width:var(--size-icon-sm);height:var(--size-icon-sm)}
+.mock svg.i.lg{width:var(--size-icon-lg);height:var(--size-icon-lg)}
+.mock :focus-visible{outline:2px solid var(--color-focus);outline-offset:2px}
+/* buttons: primary / secondary / text / icon / danger */
+.mock .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);height:var(--size-control);padding:0 var(--space-3);border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-surface-raised);cursor:pointer;font-size:var(--font-size-sm);white-space:nowrap}
+.mock .btn:hover{border-color:var(--color-border-strong)}
+.mock .btn.primary{background:var(--color-accent-solid);color:var(--color-on-accent);border-color:transparent;font-weight:600}
+.mock .btn.text{background:transparent;border-color:transparent;color:var(--color-accent);padding:0 var(--space-2)}
+.mock .btn.icon{width:var(--size-control);padding:0;background:transparent;border-color:transparent;color:var(--color-text)}
+.mock .btn.icon:hover{background:var(--color-surface-raised)}
+.mock .btn.icon[aria-pressed="true"],.mock .btn.tool[aria-pressed="true"]{background:var(--color-selected);border-color:var(--color-border-strong);color:var(--color-accent)}
+.mock .btn.danger{color:var(--color-danger)}
+.mock .btn.danger-solid{background:var(--color-danger);color:var(--color-bg);border-color:transparent;font-weight:600}
+.mock .btn:disabled{color:var(--color-text-disabled);cursor:default;border-color:var(--color-border)}
+.mock .btn.icon:disabled{border-color:transparent}
+.mock .btn.full{width:100%}
+/* header */
+.mock .hdr{height:var(--size-header);flex:none;display:flex;align-items:center;gap:var(--space-2);padding:0 var(--space-3);background:var(--color-surface);border-bottom:1px solid var(--color-border)}
+.mock .brand{display:flex;align-items:center;gap:var(--space-2);font-weight:700;font-size:var(--font-size-md);padding-right:var(--space-3);border-right:1px solid var(--color-border)}
+.mock .brand-mark{width:30px;height:30px;border-radius:var(--radius-md);display:grid;place-items:center;background:var(--color-brand-bg);color:var(--color-brand-fg)}
+.mock .doc-title{flex:1;min-width:0;display:flex;align-items:center;gap:var(--space-2)}
+.mock .doc-title strong{font-weight:600;font-size:var(--font-size-md);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock .badge{font-size:var(--font-size-xs);color:var(--color-text-muted);background:var(--color-surface-raised);border-radius:var(--radius-sm);padding:0 var(--space-2)}
+.mock .tools-group{display:flex;align-items:center;gap:var(--space-0-5);padding:0 var(--space-2);border-right:1px solid var(--color-border);margin-right:var(--space-1)}
+.mock .zoom-val{min-width:48px;text-align:center;font-size:var(--font-size-xs);font-variant-numeric:tabular-nums;color:var(--color-text-muted)}
+/* workspace */
+.mock .ws{flex:1;min-height:0;display:flex;position:relative}
+.mock .files{width:var(--size-panel-left);flex:none;background:var(--color-surface);border-right:1px solid var(--color-border);display:flex;flex-direction:column}
+.mock .panel-h{height:48px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 var(--space-4);border-bottom:1px solid var(--color-border);font-weight:600;font-size:var(--font-size-md)}
+.mock .count{font-size:var(--font-size-xs);color:var(--color-accent);background:var(--color-selected);border-radius:var(--radius-sm);padding:0 var(--space-2);font-weight:600}
+.mock .file-list{padding:var(--space-2);display:grid;gap:var(--space-1);overflow:auto}
+.mock .row{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2);border-radius:var(--radius-lg);border:1px solid transparent;cursor:pointer;position:relative}
+.mock .row:hover{background:var(--color-surface-raised)}
+.mock .row[aria-current="true"]{background:var(--color-selected);border-color:var(--color-border-strong)}
+.mock .thumb{width:56px;height:44px;border-radius:var(--radius-md);background:var(--color-surface-sunken);display:grid;place-items:center;color:var(--color-text-muted);overflow:hidden;flex:none;position:relative}
+.mock .thumb svg.scene{width:100%;height:100%}
+.mock .row-text{display:grid;min-width:0}
+.mock .row-text strong{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock .row-text small{font-size:var(--font-size-xs);color:var(--color-text-muted)}
+.mock .row .del{position:absolute;right:var(--space-1);top:50%;transform:translateY(-50%);opacity:0}
+.mock .row:hover .del,.mock .row[aria-current="true"] .del,.mock .row .del:focus-visible{opacity:1}
+.mock .row .del:hover{color:var(--color-danger)}
+.mock .files-foot{margin-top:auto;padding:var(--space-3) var(--space-4);border-top:1px solid var(--color-border);font-size:var(--font-size-xs);color:var(--color-text-muted)}
+/* stage */
+.mock .stage{flex:1;min-width:0;position:relative;overflow:hidden;background:var(--color-bg)}
+.mock .img-box{position:absolute;box-shadow:var(--shadow-lg)}
+.mock .img-box svg.scene{display:block;width:100%;height:100%}
+.mock .ann{position:absolute}
+.mock .ann.note{background:var(--color-note-bg);color:var(--color-note-text);padding:var(--space-2);font-size:var(--font-size-md);box-shadow:var(--shadow-sm);line-height:1.35}
+.mock .ann.note.sel{outline:2px solid var(--color-annotation-selected);outline-offset:2px}
+.mock .ann.stamp{display:grid;place-items:center}
+.mock .crop{position:absolute;border:2px dashed var(--color-crop-border);background:var(--color-crop-fill)}
+.mock .crop-label{position:absolute;left:0;top:-26px;font-size:var(--font-size-xs);background:var(--color-surface);color:var(--color-text);border-radius:var(--radius-sm);padding:0 var(--space-2);box-shadow:var(--shadow-sm);white-space:nowrap}
+.mock .canvas-bar{position:absolute;top:var(--space-4);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:var(--space-1);padding:var(--space-1);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:3}
+.mock .canvas-bar .sep{width:1px;height:20px;background:var(--color-border);margin:0 var(--space-1)}
+.mock .btn.tool{height:36px;padding:0 var(--space-3);background:transparent;border-color:transparent}
+.mock .pager{position:absolute;bottom:var(--space-4);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);font-size:var(--font-size-xs);color:var(--color-text-muted);font-variant-numeric:tabular-nums;z-index:3}
+.mock .pager strong{color:var(--color-text);font-size:var(--font-size-sm)}
+.mock .hint{position:absolute;bottom:64px;left:50%;transform:translateX(-50%);font-size:var(--font-size-xs);color:var(--color-text-muted);white-space:nowrap}
+/* tools panel */
+.mock .tools{width:var(--size-panel-right);flex:none;background:var(--color-surface);border-left:1px solid var(--color-border);display:flex;flex-direction:column;min-height:0}
+.mock .tools-scroll{flex:1;min-height:0;overflow:auto}
+.mock .sec{border-bottom:1px solid var(--color-border)}
+.mock .sec-h{display:flex;align-items:center;justify-content:space-between;width:100%;padding:var(--space-3) var(--space-4);background:none;border:0;cursor:pointer;font-weight:600;font-size:var(--font-size-sm);text-align:left}
+.mock .sec-h .chev{transition:transform 120ms}
+.mock .sec-h[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+.mock .sec-b{padding:0 var(--space-4) var(--space-4);display:grid;gap:var(--space-3)}
+.mock .sec-static .sec-title{padding:var(--space-3) var(--space-4) var(--space-2);font-weight:600}
+.mock .help{font-size:var(--font-size-xs);color:var(--color-text-muted);margin:0}
+.mock .tool-pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+.mock .tool-pair .btn{height:56px;flex-direction:column;gap:var(--space-1);font-size:var(--font-size-xs)}
+.mock label.fld{display:grid;gap:var(--space-1);font-size:var(--font-size-xs);color:var(--color-text-muted)}
+.mock textarea,.mock input[type="number"],.mock select.inp{background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-2);color:var(--color-text);width:100%}
+.mock textarea{min-height:64px;resize:none}
+.mock .two{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)}
+.mock input[type="range"]{width:100%;accent-color:var(--color-accent)}
+.mock .range-row{display:flex;justify-content:space-between;font-size:var(--font-size-xs);color:var(--color-text-muted);font-variant-numeric:tabular-nums}
+.mock dl{display:grid;grid-template-columns:auto 1fr;gap:var(--space-1) var(--space-3);margin:0;font-size:var(--font-size-xs)}
+.mock dt{color:var(--color-text-muted)}.mock dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.mock .tabs{display:flex;border-bottom:1px solid var(--color-border);padding:0 var(--space-2)}
+.mock .tab{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:var(--space-3) var(--space-1);cursor:pointer;color:var(--color-text-muted);font-weight:600;font-size:var(--font-size-sm)}
+.mock .tab[aria-selected="true"]{color:var(--color-accent);border-bottom-color:var(--color-accent)}
+.mock .sticky-save{flex:none;border-top:1px solid var(--color-border);padding:var(--space-3) var(--space-4);display:grid;gap:var(--space-2);background:var(--color-surface)}
+.mock .sticky-save .crop-info{font-size:var(--font-size-xs);color:var(--color-text-muted);display:flex;justify-content:space-between}
+/* empty / playback */
+.mock .empty{position:absolute;inset:var(--space-6);border:2px dashed var(--color-border);border-radius:var(--radius-xl);display:grid;place-items:center;text-align:center}
+.mock .empty-in{display:grid;gap:var(--space-3);justify-items:center;max-width:420px;padding:var(--space-4)}
+.mock .empty h2{font-size:var(--font-size-xl);margin:0}
+.mock .empty p{margin:0;color:var(--color-text-muted)}
+.mock .formats{font-size:var(--font-size-xs);color:var(--color-text-muted)}
+.mock .player{position:absolute;inset:var(--space-8);display:grid;place-items:center}
+.mock .video{width:min(100%,820px);aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;position:relative;box-shadow:var(--shadow-lg);background:#000}
+.mock .video svg.scene{width:100%;height:100%}
+.mock .vctl{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);background:linear-gradient(transparent,rgb(0 0 0 / .7));color:#fff;font-size:var(--font-size-xs);font-variant-numeric:tabular-nums}
+.mock .bar{flex:1;height:4px;border-radius:2px;background:rgb(255 255 255 / .35);position:relative}
+.mock .bar i{position:absolute;left:0;top:0;bottom:0;width:38%;background:#fff;border-radius:2px}
+.mock .audio{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-8);display:grid;gap:var(--space-4);justify-items:center;width:min(100%,460px);box-shadow:var(--shadow-lg)}
+.mock .audio .vctl{position:static;background:var(--color-surface-raised);color:var(--color-text);border-radius:var(--radius-lg);width:100%}
+.mock .audio .bar{background:var(--color-border)}.mock .audio .bar i{background:var(--color-accent)}
+/* toast, dialog, popover */
+.mock .toast{position:absolute;bottom:72px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);z-index:6;white-space:nowrap}
+.mock .toast.success svg{color:var(--color-success)}.mock .toast.info svg{color:var(--color-accent)}
+.mock .scrim{position:absolute;inset:0;background:var(--color-backdrop);display:grid;place-items:center;z-index:8}
+.mock .dialog{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);padding:var(--space-6);width:min(420px,calc(100% - 32px));display:grid;gap:var(--space-3);box-shadow:var(--shadow-lg)}
+.mock .dialog h3{margin:0;font-size:var(--font-size-lg)}
+.mock .dialog p{margin:0;color:var(--color-text-muted)}
+.mock .dialog .acts{display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-2)}
+.mock .pop{position:absolute;top:52px;right:var(--space-3);width:300px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);padding:var(--space-4);z-index:7;display:grid;gap:var(--space-2)}
+.mock .pop h3{margin:0;font-size:var(--font-size-md)}
+.mock kbd{font-family:inherit;font-size:var(--font-size-xs);background:var(--color-surface-raised);border:1px solid var(--color-border);border-bottom-width:2px;border-radius:var(--radius-sm);padding:0 var(--space-1)}
+.mock .keys{display:grid;grid-template-columns:auto 1fr;gap:var(--space-1) var(--space-3);font-size:var(--font-size-xs)}
+/* mobile */
+.mock[data-device="mobile"] .hdr{gap:var(--space-1);padding:0 var(--space-2)}
+.mock .mbar{flex:none;height:64px;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-top:1px solid var(--color-border);background:var(--color-surface)}
+.mock .mbar button{background:none;border:0;display:grid;place-items:center;align-content:center;gap:2px;font-size:var(--font-size-xs);color:var(--color-text-muted);cursor:pointer}
+.mock .mbar button[aria-pressed="true"]{color:var(--color-accent)}
+.mock .sheet{position:absolute;left:0;right:0;bottom:0;height:68%;background:var(--color-surface);border-top-left-radius:var(--radius-xl);border-top-right-radius:var(--radius-xl);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;z-index:5}
+.mock .sheet-grip{width:40px;height:4px;border-radius:2px;background:var(--color-border);margin:var(--space-2) auto var(--space-1)}
+.mock .sheet .tools{width:auto;border:0;flex:1}
+.mock .sheet .files{width:auto;border:0;flex:1}
+@media (prefers-reduced-motion:reduce){.mock .sec-h .chev{transition:none}}
+</style>
+
+<div class="page">
+  <header>
+    <h1>SimpleImgViewer 레이아웃 시안 A·B·C</h1>
+    <p class="lede">리뉴얼 3단계 비교용 시안입니다. 세 시안 모두 2단계 디자인 토큰과 새 아이콘을 쓰고, 도구 패널 구조만 다릅니다. 파일 목록의 항목을 눌러 이미지·동영상·음성 화면을 바꾸고, 저장·삭제·스탬프 버튼으로 새 알림과 확인 창을 볼 수 있습니다.</p>
+  </header>
+
+  <section class="controls" aria-label="시안 설정">
+    <div class="control"><span id="l-variant">시안</span><div class="seg" role="group" aria-labelledby="l-variant" data-key="variant">
+      <button type="button" id="v-A" data-value="A">A 접이식 섹션</button><button type="button" id="v-B" data-value="B">B 탭</button><button type="button" id="v-C" data-value="C">C 도구 막대 + 고정 저장</button></div></div>
+    <div class="control"><span id="l-theme">제품 테마</span><div class="seg" role="group" aria-labelledby="l-theme" data-key="theme">
+      <button type="button" id="t-dark" data-value="dark">다크</button><button type="button" id="t-light" data-value="light">라이트</button></div></div>
+    <div class="control"><span id="l-size">기본 글자</span><div class="seg" role="group" aria-labelledby="l-size" data-key="size">
+      <button type="button" id="s-13" data-value="13">13px</button><button type="button" id="s-14" data-value="14">14px</button></div></div>
+    <div class="control"><span id="l-device">화면</span><div class="seg" role="group" aria-labelledby="l-device" data-key="device">
+      <button type="button" id="d-desktop" data-value="desktop">데스크톱 1440×900</button><button type="button" id="d-mobile" data-value="mobile">모바일 375×812</button></div></div>
+    <label class="control" for="media-select"><span>화면 상태</span><select id="media-select">
+      <option value="image">이미지 편집</option><option value="video">동영상</option><option value="audio">음성</option><option value="empty">빈 화면(파일 없음)</option></select></label>
+  </section>
+
+  <section class="frame-wrap" aria-label="시안 화면">
+    <div class="frame-head"><span><strong id="frame-title">시안 A</strong> · <span id="frame-size">1440×900</span>을 화면 폭에 맞춰 축소해 보여 줍니다.</span><div class="metrics" id="metrics" aria-live="polite"></div></div>
+    <div class="stage-box" id="stage-box"><div class="mock" id="mock"></div></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card" aria-labelledby="h-variant"><h2 id="h-variant">시안 설명</h2><div id="variant-text"></div></section>
+    <section class="card" aria-labelledby="h-common"><h2 id="h-common">세 시안 공통 변경</h2>
+      <ul>
+        <li>토큰 적용: 최소 12px 글자, 4px 간격, 역할 이름 색, 라이트 테마의 로고·배지 색 수정(U7·U16·A3)</li>
+        <li>유니코드 문자 대신 SVG 아이콘, 모든 아이콘 버튼에 이름과 툴팁(U3)</li>
+        <li>버튼 위계: 기본(편집본 저장)·보조·텍스트·위험 4단계(U8)</li>
+        <li>동영상·음성에서는 이미지 전용 헤더 도구를 숨김(U9)</li>
+        <li>안내는 화면을 가리지 않는 알림으로, 전체 화면 오류는 파일 표시 실패에만(U13·U10)</li>
+        <li>저장 완료 알림(U2), 앱 안 삭제 확인 창(U6), 단축키 도움말(U14·U17), 빈 화면 끌어다 놓기 영역(U17)</li>
+        <li>모바일: 아래 탭 막대와 시트로 패널을 열어 이미지를 가리지 않음(M1)</li>
+      </ul></section>
+  </div>
+
+  <section class="card" aria-labelledby="h-compare"><h2 id="h-compare">비교 기준</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th scope="col">기준</th><th scope="col">A 접이식 섹션</th><th scope="col">B 탭</th><th scope="col">C 도구 막대 + 고정 저장</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">편집본 저장 버튼 · 1440×900 · 13px</th><td id="m-A-13"></td><td id="m-B-13"></td><td id="m-C-13"></td></tr>
+        <tr><th scope="row">편집본 저장 버튼 · 1440×900 · 14px</th><td id="m-A-14"></td><td id="m-B-14"></td><td id="m-C-14"></td></tr>
+        <tr><th scope="row">이미지를 연 직후 편집본 저장까지 클릭</th><td class="good">1</td><td class="warn">2(내보내기 탭 → 저장)</td><td class="good">1</td></tr>
+        <tr><th scope="row">자르기 저장까지 클릭(영역 드래그 제외)</th><td>2(영역 선택 → 저장)</td><td>3(탭 → 영역 선택 → 저장)</td><td>2(자르기 도구 → 저장)</td></tr>
+        <tr><th scope="row">도구 전환 위치</th><td>오른쪽 패널</td><td>오른쪽 패널(편집 탭)</td><td class="good">이미지 바로 위 막대</td></tr>
+        <tr><th scope="row">모바일</th><td>시트 안 접이식 섹션</td><td>시트 안 탭</td><td>이미지 위 막대 + 시트 하단 고정 저장</td></tr>
+        <tr><th scope="row">구현 변경 범위</th><td class="good">작음: ToolsPanel 섹션 접기</td><td>중간: 탭 상태 추가</td><td class="warn">큼: 도구 막대 신설, 패널을 속성 패널로</td></tr>
+        <tr><th scope="row">주요 위험</th><td>섹션을 자주 여닫음</td><td>저장이 탭 뒤로 숨어 발견이 늦음</td><td>막대가 이미지 윗부분을 가릴 수 있음</td></tr>
+      </tbody></table></div>
+    <p class="note">표의 위 두 줄은 이 페이지가 각 시안을 실제 크기(1440×900)로 그린 뒤 저장 버튼이 패널 안에서 스크롤 없이 보이는지 측정한 값입니다.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-decide"><h2 id="h-decide">정할 것</h2>
+    <ul>
+      <li>도구 패널 구조: A·B·C 중 하나</li>
+      <li>기본 글자 크기: 13px 또는 14px(위 "기본 글자"로 바꿔 보세요)</li>
+      <li>글꼴: 시스템 글꼴 유지(이 시안) 또는 Pretendard 같은 한글 글꼴 직접 제공(첫 화면에 내려받기와 라이선스 고지 추가)</li>
+    </ul></section>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc3e6"/><stop offset="1" stop-color="#e8f1f8"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f7aa8"/><stop offset="1" stop-color="#1f4a6e"/></linearGradient>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14213a"/><stop offset="1" stop-color="#2b3d5c"/></linearGradient>
+  </defs>
+  <symbol id="scene-harbor" viewBox="0 0 1200 800"><rect width="1200" height="800" fill="url(#sky)"/><circle cx="930" cy="170" r="70" fill="#fff6d8"/><path d="M0 430 L180 300 L320 390 L470 260 L640 410 L800 330 L1000 420 L1200 340 L1200 520 L0 520Z" fill="#7d93a8"/><rect y="500" width="1200" height="300" fill="url(#sea)"/><rect x="120" y="455" width="420" height="60" fill="#c8cfd6"/><rect x="160" y="400" width="70" height="55" fill="#d9822b"/><rect x="240" y="415" width="70" height="40" fill="#2f6f9e"/><rect x="320" y="405" width="70" height="50" fill="#b9413b"/><rect x="400" y="420" width="70" height="35" fill="#e2b53d"/><path d="M690 560 L900 560 L870 610 L720 610Z" fill="#e9edf1"/><rect x="760" y="520" width="70" height="40" fill="#e9edf1"/><path d="M0 700 Q300 670 600 700 T1200 700" stroke="#ffffff55" stroke-width="6" fill="none"/></symbol>
+  <symbol id="scene-plan" viewBox="0 0 1200 800"><rect width="1200" height="800" fill="#f6f4ee"/><g stroke="#3a4a5e" stroke-width="10" fill="none"><rect x="120" y="100" width="960" height="600"/><path d="M520 100V420H120M520 520V700M760 100V360H1080M760 460V700"/></g><g fill="#3a4a5e" font-family="sans-serif" font-size="44"><text x="250" y="280">회의실</text><text x="240" y="630">창고</text><text x="840" y="250">사무실</text><text x="860" y="600">로비</text></g></symbol>
+  <symbol id="scene-night" viewBox="0 0 1600 900"><rect width="1600" height="900" fill="url(#night)"/><g fill="#0d1526"><rect x="80" y="430" width="160" height="470"/><rect x="270" y="330" width="210" height="570"/><rect x="510" y="480" width="150" height="420"/><rect x="700" y="260" width="240" height="640"/><rect x="980" y="400" width="180" height="500"/><rect x="1190" y="300" width="230" height="600"/><rect x="1440" y="470" width="140" height="430"/></g><g fill="#f5d27a"><rect x="300" y="380" width="24" height="18"/><rect x="350" y="440" width="24" height="18"/><rect x="740" y="320" width="24" height="18"/><rect x="800" y="400" width="24" height="18"/><rect x="860" y="520" width="24" height="18"/><rect x="1230" y="360" width="24" height="18"/><rect x="1290" y="470" width="24" height="18"/></g></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-files" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M21 21l-4.5-4.5"/></symbol>
+  <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M21 21l-4.5-4.5"/></symbol>
+  <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-rot-l" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5"/></symbol>
+  <symbol id="i-rot-r" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5"/></symbol>
+  <symbol id="i-loupe" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.5"/><path d="M20 20l-5.6-5.6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 1 1 3.6 2.4c-.7.3-1.1.9-1.1 1.7v.4M12 17h.01"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-stamp" viewBox="0 0 24 24"><path d="M9 3h6v5l3 4H6l3-4zM5 15h14v3H5zM7 21h10"/></symbol>
+  <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></symbol>
+  <symbol id="i-audio" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z" fill="currentColor"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM16 9a4 4 0 0 1 0 6"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+</svg>
+
+<script>
+(()=>{
+const ic=(id,cls='')=>`<svg class="i ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const scene=(id)=>`<svg class="scene" viewBox="${id==='night'?'0 0 1600 900':'0 0 1200 800'}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#scene-${id}"/></svg>`;
+const files=[
+  {id:'img',name:'현장사진_0412.png',kind:'image',meta:'PNG · 4032×2688 · 6.8 MB',thumb:'harbor'},
+  {id:'gif',name:'2층_배치도.gif',kind:'image',meta:'GIF · 2페이지 · 380 KB',thumb:'plan'},
+  {id:'vid',name:'현장점검_영상.mp4',kind:'video',meta:'MP4 · 0:42 · 18.6 MB',thumb:'night'},
+  {id:'aud',name:'회의녹음_0412.wav',kind:'audio',meta:'WAV · 3:15 · 33.4 MB',thumb:null},
+];
+const state={variant:'A',theme:'dark',size:'13',device:'desktop',media:'image',tab:'edit',open:{annotate:true,export:true,view:false,info:false},
+  tool:'move',stamp:'',brightness:100,toast:null,dialog:null,help:false,sheet:null};
+try{const saved=JSON.parse(localStorage.getItem('viewer-layouts')||'{}');for(const k of ['variant','theme','size','device'])if(saved[k])state[k]=saved[k];}catch{}
+const mediaFile=()=>state.media==='video'?files[2]:state.media==='audio'?files[3]:state.media==='image'?files[0]:null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- panel sections ---------- */
+const secAnnotate=(withTools)=>`
+  ${withTools?`<div class="tool-pair"><button type="button" class="btn tool" data-act="tool" data-tool="note" aria-pressed="${state.tool==='note'}">${ic('note')}메모 추가</button><button type="button" class="btn tool" data-act="tool" data-tool="stamp" aria-pressed="${state.tool==='stamp'}">${ic('stamp')}스탬프 배치</button></div>
+  <p class="help">도구를 고른 뒤 이미지를 누르면 그 자리에 놓입니다. <kbd>Esc</kbd>로 취소합니다.</p>`:''}
+  <label class="fld" for="note-text">선택한 메모 내용<textarea id="note-text">외벽 균열 확인 필요</textarea></label>
+  <div class="two"><label class="fld" for="note-w">너비(px)<input id="note-w" type="number" value="520"></label><label class="fld" for="note-h">높이(px)<input id="note-h" type="number" value="160"></label></div>
+  ${withTools?`<div class="two"><button type="button" class="btn">${ic('undo','sm')}실행 취소</button><button type="button" class="btn" disabled>${ic('redo','sm')}다시 실행</button></div>`:''}
+  <button type="button" class="btn danger full">${ic('trash','sm')}선택 항목 삭제</button>`;
+const secStamps=()=>`
+  <div class="two" style="grid-template-columns:1fr auto"><label class="fld" for="stamp-select">내 스탬프<select id="stamp-select" class="inp" data-act="stamp"><option value="">스탬프 고르기</option><option value="ok" ${state.stamp==='ok'?'selected':''}>검토완료.png</option><option value="hold" ${state.stamp==='hold'?'selected':''}>보류.png</option></select></label><button type="button" class="btn" style="align-self:end">${ic('upload','sm')}올리기</button></div>
+  <p class="help">이 페이지 메모 1개 · 스탬프 1개</p>`;
+const secView=()=>`
+  <div class="range-row"><label for="bright">밝기</label><span>${state.brightness}%</span></div>
+  <input id="bright" type="range" min="25" max="200" value="${state.brightness}" data-act="bright">
+  <button type="button" class="btn text" style="justify-self:start" data-act="bright-reset">100%로 되돌리기</button>`;
+const secExport=(withCropTool)=>`
+  <div class="crop-info" style="display:flex;justify-content:space-between;font-size:var(--font-size-xs);color:var(--color-text-muted)"><span>자르기 영역</span><span>1640 × 1120 원본 px</span></div>
+  ${withCropTool?`<button type="button" class="btn tool" data-act="tool" data-tool="crop" aria-pressed="${state.tool==='crop'}">${ic('crop','sm')}영역 다시 선택</button>`:''}
+  <div class="two"><button type="button" class="btn" data-act="save" data-kind="crop">${ic('download','sm')}자르기 저장</button><button type="button" class="btn primary" data-act="save" data-kind="edited" data-save>${ic('download','sm')}편집본 저장</button></div>
+  <p class="help">편집본에는 밝기·회전·메모·스탬프가 합쳐집니다.</p>`;
+const secInfo=()=>`<dl><dt>원본 형식</dt><dd>image/png</dd><dt>파일 크기</dt><dd>6.8 MB</dd><dt>원본 해상도</dt><dd>4032 × 2688</dd><dt>페이지</dt><dd>1 / 1</dd></dl>`;
+
+function accordion(key,title,body){const open=state.open[key];return `<div class="sec"><button type="button" class="sec-h" data-act="acc" data-key="${key}" aria-expanded="${open}" aria-controls="acc-${key}">${title}${ic('chev','sm chev')}</button><div class="sec-b" id="acc-${key}" ${open?'':'hidden'}>${body}</div></div>`;}
+function staticSec(title,body){return `<div class="sec sec-static"><div class="sec-title">${title}</div><div class="sec-b">${body}</div></div>`;}
+
+function imagePanel(){
+  if(state.variant==='A')return `<div class="tools-scroll">${accordion('annotate','메모 · 스탬프',secAnnotate(true)+secStamps())}${accordion('export','자르기 · 저장',secExport(true))}${accordion('view','보기 조정',secView())}${accordion('info','파일 정보',secInfo())}</div>`;
+  if(state.variant==='B'){
+    const tabs=[['edit','편집'],['export','내보내기'],['view','보기'],['info','정보']];
+    const body={edit:secAnnotate(true)+secStamps(),export:secExport(true),view:secView(),info:secInfo()}[state.tab];
+    return `<div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" class="tab" role="tab" id="tab-${k}" aria-selected="${state.tab===k}" aria-controls="tabpanel" data-act="tab" data-key="${k}">${t}</button>`).join('')}</div><div class="tools-scroll" role="tabpanel" id="tabpanel" aria-labelledby="tab-${state.tab}"><div class="sec-b" style="padding-top:var(--space-4)">${body}</div></div>`;
+  }
+  return `<div class="tools-scroll">${staticSec('선택한 메모',secAnnotate(false))}${staticSec('내 스탬프',secStamps())}${staticSec('보기 조정',secView())}${staticSec('파일 정보',secInfo())}</div>
+    <div class="sticky-save"><div class="crop-info"><span>자르기 영역</span><span>1640 × 1120 원본 px</span></div><div class="two"><button type="button" class="btn" data-act="save" data-kind="crop">${ic('download','sm')}자르기 저장</button><button type="button" class="btn primary" data-act="save" data-kind="edited" data-save>${ic('download','sm')}편집본 저장</button></div></div>`;
+}
+function playbackPanel(f){return `<div class="tools-scroll">${staticSec('재생',`<label class="fld" for="rate">배속<select id="rate" class="inp"><option>0.5×</option><option selected>1×</option><option>1.25×</option><option>1.5×</option><option>2×</option></select></label>`)}${staticSec('파일 정보',`<dl><dt>원본 형식</dt><dd>${f.kind==='video'?'video/mp4':'audio/wav'}</dd><dt>재생용 사본</dt><dd>${f.kind==='video'?'WebM · VP8':'MP3'}</dd><dt>길이</dt><dd>${f.kind==='video'?'0:42':'3:15'}</dd><dt>파일 크기</dt><dd>${f.meta.split('· ').pop()}</dd></dl>`)}</div>`;}
+function toolsPanel(){const f=mediaFile();const title=!f?'도구':f.kind==='image'?(state.variant==='C'?'속성':'이미지 도구'):'재생 정보';
+  const body=!f?`<div class="sec-b" style="padding-top:var(--space-4)"><p class="help">파일을 열면 편집 도구와 파일 정보가 여기에 나타납니다.</p></div>`:f.kind==='image'?imagePanel():playbackPanel(f);
+  return `<aside class="tools" aria-label="${title}"><div class="panel-h">${title}</div>${body}</aside>`;}
+
+/* ---------- header, files, stage ---------- */
+function header(){const f=mediaFile(),img=f?.kind==='image',m=state.device==='mobile';
+  const viewTools=img?`<div class="tools-group" role="group" aria-label="보기">${m?'':`<button type="button" class="btn icon" title="축소 (−)" aria-label="축소">${ic('zoom-out')}</button>`}<span class="zoom-val">72%</span>${m?'':`<button type="button" class="btn icon" title="확대 (+)" aria-label="확대">${ic('zoom-in')}</button><button type="button" class="btn icon" title="화면에 맞추기 (0)" aria-label="화면에 맞추기">${ic('fit')}</button><button type="button" class="btn icon" title="왼쪽으로 회전 (Shift+R)" aria-label="왼쪽으로 회전">${ic('rot-l')}</button><button type="button" class="btn icon" title="오른쪽으로 회전 (R)" aria-label="오른쪽으로 회전">${ic('rot-r')}</button><button type="button" class="btn icon" title="돋보기 (M)" aria-label="돋보기" aria-pressed="false">${ic('loupe')}</button>`}</div>`:'';
+  if(m)return `<header class="hdr"><div class="brand-mark" aria-hidden="true">${ic('image','sm')}</div><div class="doc-title"><strong>${f?esc(f.name):'SimpleImgViewer'}</strong></div>${viewTools}<button type="button" class="btn icon" title="더보기" aria-label="더보기">${ic('more')}</button><button type="button" class="btn primary icon" style="width:36px" title="파일 열기" aria-label="파일 열기">${ic('plus')}</button></header>`;
+  return `<header class="hdr"><button type="button" class="btn icon" title="파일 목록 접기" aria-label="파일 목록 접기">${ic('files')}</button><div class="brand"><span class="brand-mark" aria-hidden="true">${ic('image','sm')}</span>SimpleImgViewer</div>
+    <div class="doc-title">${f?`<strong>${esc(f.name)}</strong><span class="badge">${f.kind==='image'?'이미지':f.kind==='video'?'동영상':'음성'}</span>`:'<strong>파일 없음</strong>'}</div>
+    ${viewTools}<button type="button" class="btn icon" title="도구 패널 접기" aria-label="도구 패널 접기">${ic('panel')}</button><button type="button" class="btn icon" title="${state.theme==='dark'?'라이트 테마로':'다크 테마로'}" aria-label="테마 전환" data-act="theme">${ic(state.theme==='dark'?'sun':'moon')}</button><button type="button" class="btn icon" title="단축키 도움말 (?)" aria-label="단축키 도움말" aria-pressed="${state.help}" data-act="help">${ic('help')}</button>
+    <button type="button" class="btn icon" title="URL로 파일 열기" aria-label="URL로 파일 열기">${ic('link')}</button><button type="button" class="btn primary">${ic('plus','sm')}파일 열기</button></header>`;}
+function fileList(){const cur=mediaFile();return `<aside class="files" aria-label="파일 목록"><div class="panel-h">파일 목록 <span class="count">${state.media==='empty'?0:files.length}</span></div>
+  ${state.media==='empty'?`<div class="sec-b" style="padding-top:var(--space-4)"><p class="help">열린 파일이 없습니다.</p></div>`:`<div class="file-list">${files.map(f=>`<div class="row" role="button" tabindex="0" aria-current="${cur?.id===f.id}" data-act="open" data-kind="${f.kind}" data-id="${f.id}"><span class="thumb">${f.thumb?scene(f.thumb):ic('audio','lg')}</span><span class="row-text"><strong>${esc(f.name)}</strong><small>${f.meta}</small></span><button type="button" class="btn icon del" title="${esc(f.name)} 삭제" aria-label="${esc(f.name)} 삭제" data-act="del" data-id="${f.id}">${ic('trash','sm')}</button></div>`).join('')}</div>`}
+  <div class="files-foot">파일은 끌어다 놓아도 열립니다 · 최대 100 MB</div></aside>`;}
+function imageStage(){
+  const m=state.device==='mobile';
+  // Fit the 1200×800 preview like the app's fit(): leave room for the canvas bar and pager.
+  const box=m?{w:343,h:229,top:150,left:16}:{w:864,h:576,top:state.variant==='C'?112:96,left:30};
+  const filter=`filter:brightness(${state.brightness}%)`;
+  const bar=state.variant==='C'?`<div class="canvas-bar" role="toolbar" aria-label="편집 도구">${[['move','이동','V'],['note','메모','N'],['stamp','스탬프','S'],['crop','자르기','C']].map(([t,l,k])=>`<button type="button" class="btn tool" data-act="tool" data-tool="${t}" aria-pressed="${state.tool===t}" title="${l} (${k})">${ic(t==='move'?'move':t)}${m?'':l}</button>`).join('')}<span class="sep"></span><button type="button" class="btn icon" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">${ic('undo')}</button><button type="button" class="btn icon" title="다시 실행" aria-label="다시 실행" disabled>${ic('redo')}</button></div>`:'';
+  return `${bar}<div class="img-box" style="width:${box.w}px;height:${box.h}px;top:${box.top}px;left:${m?box.left+'px':`calc(50% - ${box.w/2}px)`}"><div style="width:100%;height:100%;${filter}">${scene('harbor')}</div>
+    <div class="ann note sel" style="left:8%;top:10%;width:30%;height:14%;font-size:${(box.w*0.021).toFixed(1)}px;padding:${(box.w*0.009).toFixed(1)}px">외벽 균열 확인 필요</div>
+    <div class="ann stamp" style="left:72%;top:66%;width:14%;height:20%"><svg viewBox="0 0 100 100" width="100%" height="100%" aria-label="검토완료 스탬프"><circle cx="50" cy="50" r="44" fill="none" stroke="#c0392b" stroke-width="6"/><text x="50" y="58" text-anchor="middle" font-size="20" font-weight="700" fill="#c0392b" font-family="sans-serif">검토완료</text></svg></div>
+    <div class="crop" style="left:30%;top:28%;width:41%;height:42%"><span class="crop-label">1640 × 1120 원본 px</span></div></div>
+    ${m?'':`<div class="hint">드래그로 이동 · 휠 또는 <kbd>+</kbd><kbd>−</kbd>로 확대 · <kbd>?</kbd> 단축키</div>`}
+    <nav class="pager" aria-label="페이지"><button type="button" class="btn icon" aria-label="이전 페이지" disabled>${ic('left','sm')}</button><span>페이지</span><strong>1</strong><span>/ 1</span><button type="button" class="btn icon" aria-label="다음 페이지" disabled>${ic('right','sm')}</button></nav>`;}
+function playerStage(f){const ctl=`<div class="vctl">${ic('play','sm')}<span>0:16</span><span class="bar"><i></i></span><span>${f.kind==='video'?'0:42':'3:15'}</span>${ic('volume','sm')}${f.kind==='video'?ic('full','sm'):''}</div>`;
+  return f.kind==='video'?`<div class="player"><div class="video">${scene('night')}${ctl}</div></div>`:`<div class="player"><div class="audio">${ic('audio','lg')}<strong>${esc(f.name)}</strong>${ctl}</div></div>`;}
+function emptyStage(){return `<div class="empty"><div class="empty-in">${ic('upload','lg')}<h2>파일을 여기에 끌어다 놓으세요</h2><p>또는 아래 버튼으로 고를 수 있습니다. 여러 개를 한 번에 열 수 있습니다.</p><button type="button" class="btn primary">${ic('plus','sm')}파일 열기</button><p class="formats">이미지 PNG·JPEG·GIF·TIFF·WebP·BMP · 동영상 MP4·MPEG · 음성 MP3·WAV · 파일당 최대 100 MB</p></div></div>`;}
+function stage(){const f=mediaFile();
+  const toast=state.toast?`<div class="toast ${state.toast.type}" role="status">${ic(state.toast.type==='success'?'check':'info')}<span>${state.toast.text}</span>${state.toast.action?`<button type="button" class="btn text" data-act="${state.toast.action.act}">${state.toast.action.label}</button>`:''}<button type="button" class="btn icon" aria-label="알림 닫기" data-act="toast-close">${ic('close','sm')}</button></div>`:'';
+  return `<section class="stage" aria-label="미디어 표시 영역">${!f?emptyStage():f.kind==='image'?imageStage():playerStage(f)}${toast}</section>`;}
+function popovers(){let s='';
+  if(state.help&&state.device==='desktop')s+=`<div class="pop" role="dialog" aria-label="단축키"><h3>단축키</h3><div class="keys"><span><kbd>+</kbd> <kbd>−</kbd></span><span>확대 · 축소</span><span><kbd>0</kbd></span><span>화면에 맞추기</span><span><kbd>R</kbd> / <kbd>Shift+R</kbd></span><span>회전</span><span><kbd>←</kbd> <kbd>→</kbd></span><span>이전 · 다음 페이지</span><span><kbd>V</kbd> <kbd>N</kbd> <kbd>S</kbd> <kbd>C</kbd></span><span>이동 · 메모 · 스탬프 · 자르기</span><span><kbd>Esc</kbd></span><span>도구·선택 취소</span><span><kbd>Ctrl+Z</kbd></span><span>실행 취소</span></div></div>`;
+  if(state.dialog){const f=files.find(x=>x.id===state.dialog);s+=`<div class="scrim"><div class="dialog" role="alertdialog" aria-labelledby="dlg-t" aria-describedby="dlg-d"><h3 id="dlg-t">'${esc(f.name)}' 파일을 삭제할까요?</h3><p id="dlg-d">원본과 이 파일에 놓은 메모·스탬프가 함께 삭제되며 되돌릴 수 없습니다.</p><div class="acts"><button type="button" class="btn" data-act="dlg-cancel">취소</button><button type="button" class="btn danger-solid" data-act="dlg-ok">삭제</button></div></div></div>`;}
+  return s;}
+function mobileBar(){const f=mediaFile();const items=[['files','files','파일 목록']];if(f?.kind==='image')items.push(['tools','sliders',state.variant==='C'?'속성':'편집 도구']);else if(f)items.push(['tools','sliders','재생 정보']);
+  if(f?.kind==='image'&&state.variant!=='C')items.push(['save','download','저장']);
+  return `<nav class="mbar" aria-label="화면 메뉴">${items.map(([k,i,l])=>`<button type="button" data-act="sheet" data-key="${k}" aria-pressed="${state.sheet===k}">${ic(i)}${l}</button>`).join('')}</nav>`;}
+function mobileSheet(){if(!state.sheet)return '';
+  let inner;if(state.sheet==='files')inner=fileList();else if(state.sheet==='save'){inner=`<aside class="tools" aria-label="저장"><div class="panel-h">저장</div><div class="tools-scroll"><div class="sec-b" style="padding-top:var(--space-4)">${secExport(true)}</div></div></aside>`;}
+  else inner=toolsPanel();
+  return `<div class="sheet" role="dialog" aria-label="패널"><div class="sheet-grip"></div><div style="display:flex;justify-content:flex-end;padding:0 var(--space-2)"><button type="button" class="btn icon" aria-label="닫기" data-act="sheet" data-key="${state.sheet}">${ic('close')}</button></div>${inner}</div>`;}
+function mockHtml(){
+  if(state.device==='mobile')return `${header()}<div class="ws">${stage()}${mobileSheet()}${popovers()}</div>${mobileBar()}`;
+  return `${header()}<div class="ws">${fileList()}${stage()}${toolsPanel()}${popovers()}</div>`;}
+
+/* ---------- variant text ---------- */
+const texts={
+  A:`<p>지금 구조를 유지하면서 도구 패널의 섹션을 접고 펼칠 수 있게 합니다. 자주 쓰는 "메모 · 스탬프"와 "자르기 · 저장"은 펼친 채로 두고, "보기 조정"과 "파일 정보"는 접어 둡니다.</p><ul><li>장점: 바뀌는 부분이 적어 익숙하고 구현이 가장 쉽습니다.</li><li>단점: 섹션을 여러 개 펼치면 다시 저장 버튼이 아래로 밀립니다.</li></ul>`,
+  B:`<p>도구 패널을 편집·내보내기·보기·정보 네 탭으로 나눕니다. 한 번에 한 가지 일만 보여 줘서 패널이 짧습니다.</p><ul><li>장점: 패널이 항상 짧고 정돈되어 보입니다.</li><li>단점: 저장이 "내보내기" 탭 뒤에 있어 한 번 더 눌러야 하고, 처음 쓰는 사람은 찾기 어렵습니다.</li></ul>`,
+  C:`<p>이동·메모·스탬프·자르기 도구를 이미지 바로 위의 떠 있는 막대로 옮기고, 오른쪽 패널은 선택한 항목의 속성만 보여 줍니다. 자르기·편집본 저장은 패널 아래에 고정해 언제나 보입니다.</p><ul><li>장점: 도구를 바꾸려고 패널까지 갈 필요가 없고, 저장 버튼이 항상 보입니다. 사진 편집기에 익숙한 사람에게 자연스럽습니다.</li><li>단점: 바꾸는 범위가 가장 크고, 도구 막대가 이미지 윗부분을 조금 가립니다.</li></ul>`};
+
+/* ---------- render & scale ---------- */
+const box=document.getElementById('stage-box'),mock=document.getElementById('mock');
+function scale(){const w=state.device==='mobile'?375:1440,h=state.device==='mobile'?812:900;const s=Math.min(1,box.parentElement.clientWidth/w);mock.style.transform=`scale(${s})`;box.style.width=(w*s)+'px';box.style.height=(h*s)+'px';}
+function applyMockAttrs(el){el.dataset.protoTheme=state.theme;el.dataset.size=state.size;el.dataset.device=state.device;}
+function render(){
+  applyMockAttrs(mock);mock.innerHTML=mockHtml();scale();
+  for(const g of document.querySelectorAll('.seg'))for(const b of g.querySelectorAll('button'))b.setAttribute('aria-pressed',String(state[g.dataset.key]===b.dataset.value));
+  document.getElementById('media-select').value=state.media;
+  document.getElementById('frame-title').textContent='시안 '+state.variant;
+  document.getElementById('frame-size').textContent=state.device==='mobile'?'375×812':'1440×900';
+  document.getElementById('variant-text').innerHTML=texts[state.variant];
+  metrics();
+  try{localStorage.setItem('viewer-layouts',JSON.stringify({variant:state.variant,theme:state.theme,size:state.size,device:state.device}));}catch{}
+}
+// Where is the "편집본 저장" button relative to the visible part of its scroll container (unscaled px)?
+function saveVisibility(root){
+  const btn=root.querySelector('[data-save]');if(!btn)return {state:'tab',label:'탭 이동 필요'};
+  const sc=btn.closest('.tools-scroll'),r=btn.getBoundingClientRect(),m=root.getBoundingClientRect();
+  if(!sc){return {state:'shown',label:'항상 보임(고정)'};}
+  const c=sc.getBoundingClientRect();const visible=r.top>=c.top&&r.bottom<=c.bottom;
+  return visible?{state:'shown',label:'스크롤 없이 보임'}:{state:'hidden',label:`스크롤 필요(버튼 위치 ${Math.round((r.bottom-m.top)/currentScale(root))}px)`};
+}
+const currentScale=el=>{const t=getComputedStyle(el).transform;if(!t||t==='none')return 1;const v=t.match(/matrix\(([^,]+)/);return v?parseFloat(v[1]):1;};
+function metrics(){
+  const out=document.getElementById('metrics');const chips=[];
+  if(state.device==='desktop'&&state.media==='image'){
+    const v=saveVisibility(mock);chips.push(`<span class="chip ${v.state==='shown'?'good':v.state==='tab'?'warn':'bad'}">편집본 저장: ${v.label}</span>`);
+    const sc=mock.querySelector('.tools .tools-scroll');if(sc)chips.push(`<span class="chip">패널 내용 ${sc.scrollHeight}px / 보이는 높이 ${sc.clientHeight}px</span>`);
+  }else chips.push(`<span class="chip">측정은 데스크톱 · 이미지 편집 상태에서 표시됩니다</span>`);
+  out.innerHTML=chips.join('');
+}
+// Measure every variant at 13/14px off-screen at real size for the comparison table.
+function measureAll(){
+  const saved={...state};
+  for(const v of ['A','B','C'])for(const s of ['13','14']){
+    Object.assign(state,{variant:v,size:s,device:'desktop',media:'image',tab:'edit',open:{annotate:true,export:true,view:false,info:false},toast:null,dialog:null,help:false,sheet:null});
+    const el=document.createElement('div');el.className='mock';applyMockAttrs(el);el.style.cssText='left:-20000px;top:0;visibility:hidden';el.innerHTML=mockHtml();document.body.appendChild(el);
+    const r=saveVisibility(el);const td=document.getElementById(`m-${v}-${s}`);td.textContent=r.label;td.className=r.state==='shown'?'good':r.state==='tab'?'warn':'bad';el.remove();
+  }
+  Object.assign(state,saved);
+}
+
+/* ---------- events ---------- */
+document.querySelector('.controls').addEventListener('click',e=>{const b=e.target.closest('.seg button');if(!b)return;const k=b.closest('.seg').dataset.key;state[k]=b.dataset.value;state.toast=null;state.dialog=null;state.help=false;state.sheet=null;render();});
+document.getElementById('media-select').addEventListener('change',e=>{state.media=e.target.value;state.toast=null;state.sheet=null;render();});
+mock.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;
+  if(a==='open'&&!e.target.closest('[data-act="del"]')){state.media=t.dataset.kind==='image'?'image':t.dataset.kind;state.toast=null;state.sheet=null;}
+  else if(a==='del'){e.stopPropagation();state.dialog=t.dataset.id;}
+  else if(a==='dlg-cancel')state.dialog=null;
+  else if(a==='dlg-ok'){const f=files.find(x=>x.id===state.dialog);state.dialog=null;state.toast={type:'success',text:`'${f.name}' 파일을 삭제했습니다`};}
+  else if(a==='acc')state.open[t.dataset.key]=!state.open[t.dataset.key];
+  else if(a==='tab')state.tab=t.dataset.key;
+  else if(a==='tool'){const tool=t.dataset.tool;if(tool==='stamp'&&!state.stamp){state.toast={type:'info',text:'놓을 스탬프를 먼저 골라 주세요',action:{act:'pick-stamp',label:'스탬프 고르기'}};state.tool='move';}else{state.tool=state.tool===tool?'move':tool;state.toast=null;}}
+  else if(a==='pick-stamp'){state.toast=null;if(state.variant==='A')state.open.annotate=true;if(state.variant==='B')state.tab='edit';if(state.device==='mobile')state.sheet='tools';render();mock.querySelector('#stamp-select')?.focus();return;}
+  else if(a==='save')state.toast={type:'success',text:t.dataset.kind==='edited'?'편집본을 저장했습니다 · 현장사진_0412-편집본.png':'잘라낸 영역을 저장했습니다 · 현장사진_0412-자르기.png'};
+  else if(a==='toast-close')state.toast=null;
+  else if(a==='help')state.help=!state.help;
+  else if(a==='theme')state.theme=state.theme==='dark'?'light':'dark';
+  else if(a==='bright-reset')state.brightness=100;
+  else if(a==='sheet')state.sheet=state.sheet===t.dataset.key?null:t.dataset.key;
+  else return;
+  render();});
+mock.addEventListener('input',e=>{if(e.target.dataset.act==='bright'){state.brightness=Number(e.target.value);const box=mock.querySelector('.img-box>div');if(box)box.style.filter=`brightness(${state.brightness}%)`;const lab=mock.querySelector('.range-row span');if(lab)lab.textContent=state.brightness+'%';}});
+mock.addEventListener('change',e=>{if(e.target.dataset.act==='stamp'){state.stamp=e.target.value;if(state.stamp){state.tool='stamp';state.toast={type:'info',text:'이미지를 누르면 스탬프가 놓입니다'};}render();}});
+mock.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.tool!=='move'||state.dialog||state.help)){state.tool='move';state.dialog=null;state.help=false;render();}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches('.row[data-act="open"]')){e.preventDefault();e.target.click();}});
+addEventListener('resize',scale);
+render();measureAll();
+})();
+</script>
+
+</body></html>

@@ -18,12 +18,12 @@ let ownedSample;
 let observedPage;const rejectedResponses=[];
 try{
   const context=await browser.newContext({viewport:{width:1440,height:920}}),page=await context.newPage();observedPage=page;const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',async r=>{if(r.status()>=400&&new URL(r.url()).pathname.startsWith('/api/'))rejectedResponses.push({path:new URL(r.url()).pathname,status:r.status(),body:(await r.text()).slice(0,1000)});});
-  await page.goto(base+'/viewer');await page.getByRole('button',{name:'＋ 파일 열기'}).waitFor();
+  await page.goto(base+'/viewer');await page.getByRole('button',{name:'파일 열기',exact:true}).waitFor();
   await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('파일 열기'))?.disabled);
   const png=await sharp({create:{width:800,height:500,channels:3,background:'#3388cc'}}).png().toBuffer();
   await page.getByTestId('file-input').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:png});
   await page.locator('.main-image').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('.main-image')?.naturalWidth===800);assert.equal(await page.locator('.file-row').count(),1);assert.ok(page.url().includes('sessionId='));scenarios.push('React upload, Node image worker, private preview and session');
-  await page.getByLabel('메모 내용').fill('React 메모');await page.getByRole('button',{name:/메모 추가/}).click();await page.locator('.surface').click({position:{x:400,y:250}});
+  await page.getByLabel('메모 내용').fill('React 메모');await page.getByRole('button',{name:'메모',exact:true}).click();await page.locator('.surface').click({position:{x:400,y:250}});
   await page.locator('.annotation.note').waitFor({state:'visible'});assert.equal(await page.locator('.annotation.note').innerText(),'React 메모');scenarios.push('click-position note persisted by Node API');
   await page.getByRole('button',{name:'실행 취소',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.annotation.note').length===0);
   await page.getByRole('button',{name:'다시 실행',exact:true}).click();await page.locator('.annotation.note').waitFor();scenarios.push('revision-checked undo and redo');
@@ -32,7 +32,7 @@ try{
   await page.locator('.surface').click({position:{x:100,y:100}});await page.locator('.annotation.stamp').waitFor();scenarios.push('uploaded stamp placed by image click');
   await page.screenshot({path:path.join(output,'viewer-dark.png')});
   await page.getByRole('button',{name:'라이트 테마로 전환'}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');await page.screenshot({path:path.join(output,'viewer-light.png')});scenarios.push('dark and light theme');
-  await page.getByRole('button',{name:/영역 선택/}).click();const box=await page.locator('.main-image').boundingBox();
+  await page.getByRole('button',{name:'자르기',exact:true}).click();const box=await page.locator('.main-image').boundingBox();
   await page.mouse.move(box.x+300,box.y+100);await page.mouse.down();await page.mouse.move(box.x+550,box.y+300,{steps:6});await page.mouse.up();
   const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'편집본 저장',exact:true}).click();const download=await downloadPromise;const file=path.join(output,'edited.png');await download.saveAs(file);const meta=await sharp(file).metadata();assert.ok(meta.width>1&&meta.height>1);scenarios.push('original-coordinate crop and composed PNG download');
   await page.getByRole('button',{name:'화면에 맞추기'}).click();await page.getByRole('button',{name:'오른쪽으로 회전'}).click();await page.getByRole('button',{name:'돋보기',exact:true}).click();scenarios.push('fit, rotation and magnifier controls');

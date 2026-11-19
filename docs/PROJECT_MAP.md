@@ -264,7 +264,7 @@ GET …/playback/sources/:sourceId/content → PlaybackService.source → 크기
 ### 5.8 미디어 삭제
 
 ```
-App.removeFile(file) → confirm → DELETE /api/v1/media/:id
+App.removeFile(file) → setConfirmRequest → ConfirmDialog(취소에 첫 포커스) → 확인 → App.deleteFile(file) → DELETE /api/v1/media/:id
 MediaService.remove(id, actor)
   store.require → running(이미지)·playback.running 키가 mediaVersion으로 시작하면 409 MEDIA_BUSY
   MediaStore.remove(record)
@@ -272,7 +272,7 @@ MediaService.remove(id, actor)
     record.json(+record.json.<uuid>.tmp) → rmdir
     editing/<id>-<page>.json(+임시) 삭제
   derived 캐시는 건드리지 않음(접근 404, 시작 시 기간/용량 정리)
-화면: 목록 제거 → sessionFor(남은 파일) → 보던 파일이면 다음 파일 select, 없으면 빈 화면
+화면: 목록 제거 → 성공 토스트 → sessionFor(남은 파일) → 보던 파일이면 다음 파일 select, 없으면 빈 화면
 실패: 파일 목록 위 notice 표시(현재 화면 유지)
 ```
 
@@ -339,6 +339,11 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | API 응답 필드 | App.jsx 해당 함수, `scripts/test-node-viewer.mjs`(브라우저 시나리오) | 빌드 + 브라우저 시나리오 |
 | `frontend/src/viewer/App.jsx`(상태·흐름) | 이를 props로 받는 `components/*` 전체 | `node scripts/build-web.mjs` + 브라우저 시나리오 |
 | `frontend/src/viewer/components/*` | 해당 화면 영역만(props는 App에서 전달) | 빌드 + 해당 영역 브라우저 확인 |
+| `App.jsx` 단축키(`keyHandler`) | `ShortcutHelp.shortcuts`, `CanvasToolbar` title·`aria-keyshortcuts`, 주석 aria-label 안내 문구 | 도움말 표와 실제 키 동작 대조, 입력란에서 무시되는지 |
+| `App.jsx` 저장 경로(`saveItem`·`historyChange`·`docRef`) | 드래그·방향키 이동·크기 수정·실행 취소가 모두 같은 revision 사용 | 연속 방향키 이동 후 revision 1회 증가·409 없음, 실행 취소/다시 실행 |
+| `viewer.css` 토큰(`--color-*`, `--font-size-*`, `--space-*`) | 모든 화면 요소, 다크·라이트 양쪽 | 다크·라이트에서 12px 미만 글자 0, 대비 4.5 미만 0, 24px 미만 대상 0(UX_DESIGN_TOKENS.md 측정 방법) |
+| `viewer.css` 760px 미디어 쿼리 / `narrowQuery` | MobileBar, 패널 시트, 헤더 축약, 토스트 위치, 세션 패널 복원 | 375×812에서 넘침 없음, 시트 열고 닫기, 저장 버튼·토스트 보임 |
+| 새 화면 동작의 실패 처리 | `run`(전체 화면 오류) vs `act`(토스트) 선택 | 실패시켜서 이미지가 가려지지 않는지(편집 동작은 `act`) |
 | `frontend/src/viewer/api.js` | 모든 서버 호출(CSRF 헤더·오류 코드 변환) | 빌드 + 브라우저 전체 시나리오 |
 
 ---
@@ -360,7 +365,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 
 테스트는 대상 기능·역할 폴더(`backend/test/<기능>/<역할>/`)에 둡니다. 옮길 때는 상대 import(`../../../<기능>/…`)와 fixture 경로(`../../fixtures/…`)를 함께 고칩니다.
 
-- 2026-11-17 실행 결과: `SIV_NATIVE_TESTS=1`에서 **145/145 통과**(약 27초). 환경 변수가 없으면 네이티브 16개를 건너뜁니다.
+- 2026-11-17 실행 결과: `SIV_NATIVE_TESTS=1`에서 **145/145 통과**(약 27초). 환경 변수가 없으면 네이티브 16개를 건너뜁니다. 2026-11-19 UX 리뉴얼 후 다시 145/145 통과(약 26초).
 - 화면(React) 단위 테스트는 없습니다. 화면 검증은 `scripts/test-node-viewer.mjs`(Playwright + Chrome, `IMAGEGATE_NODE_MODULES`/`IMAGEGATE_BROWSER` 환경 변수 필요, Playwright는 의존성에 없음)뿐입니다.
 
 ### 9.2 scripts 분류
@@ -380,6 +385,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | 구분 | 문서 |
 | --- | --- |
 | **현재 기준(먼저 읽기)** | 이 문서, [REMAINING_WORK.md](REMAINING_WORK.md), [ARCHITECTURE.md](ARCHITECTURE.md), [NODE_REACT_MIGRATION.md](NODE_REACT_MIGRATION.md), README.md, AGENTS.md |
+| 화면 UX 리뉴얼 | [UX_HEURISTIC_REVIEW.md](UX_HEURISTIC_REVIEW.md) — 휴리스틱 점검 결과, 항목 ID(U·A·M), 리뉴얼 단계별 배정 · [UX_DESIGN_TOKENS.md](UX_DESIGN_TOKENS.md) — 색·글자·간격·모서리·그림자 토큰 체계안과 대비 검사 · [UX_LAYOUT_OPTIONS.md](UX_LAYOUT_OPTIONS.md) — 레이아웃 시안 A·B·C 비교(시안: `docs/prototypes/viewer-layouts.html`) |
 | 현재 Node 구현 상세 | LPAC_*.md, MANAGED_RUNTIME_EXECUTION.md, RUNTIME_VERSION_LIFECYCLE.md, RUNTIME_VERIFIER_*.md, RUNTIME_VERIFICATION_*.md, RUNTIME_RESPONSIVENESS.md, NODE_LPAC_INTEGRATION.md, FFMPEG_LPAC_INTEGRATION.md, LEGACY_SOURCE_REMOVAL.md, INSTALLATION.md |
 | Java 시절 기록(현재 실행 규칙 아님) | DEVELOPMENT_PLAN.md, API_CONTRACT.md, TILE_*.md, IMG2TILE_*.md, LIBVIPS_*.md, PREVIEW_*.md, ORIGINAL_*.md, PUBLICATION_*.md, LINKED_*.md, BACKUP_*.md, AUDIT_LOGGING.md 등 — 요구사항·설계 의도 참고용 |
 
@@ -390,27 +396,46 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 ```
 frontend/src/main.jsx → viewer/App.jsx
 viewer/
-├─ App.jsx        상태(useState/useRef)와 업무 흐름: bootstrap, select, openFiles/openUrl, removeFile,
-│                 saveItem/historyChange/uploadStamp/download, saveSession, 포인터(pan/crop/주석 드래그), mediaProps
+├─ App.jsx        상태(useState/useRef)와 업무 흐름: bootstrap, select, openFiles/openUrl, removeFile→deleteFile,
+│                 saveItem/historyChange/uploadStamp/download, saveSession, 포인터(pan/crop/주석 드래그/핀치),
+│                 단축키(keyHandler·keyUpHandler), 끌어다 놓기(dropHandlers), 알림(notify/act), mediaProps
 ├─ api.js         createApi(csrfRef) → api(path,{method,json,body,binary,signal,keepalive}); 실패 시 Error(code)
 ├─ messages.js    오류 코드 → 한국어 문구, describe(전체 화면 오류) / brief(파일 목록 위 안내)
 ├─ format.js      clamp, bytes
 ├─ launch.js      ?url= / #url= / ?sessionId= / ?mediaId= 해석(모듈 로드 시 1회, url 진입은 주소창 정리)
-├─ viewer.css
+├─ viewer.css     디자인 토큰(:root 다크 기본, [data-theme=light]) → 컴포넌트 규칙 → 760px 이하 시트 배치
 └─ components/    props만 받아 그리는 화면 조각
-   ├─ Header.jsx         패널 전환, 확대·맞춤·회전·돋보기, 테마, 파일/URL 열기(file-input)
-   ├─ Icon.jsx           아이콘 버튼
-   ├─ FilePanel.jsx      파일 목록, notice, 삭제 버튼
-   ├─ Viewport.jsx       이미지 surface·주석·자르기 영역, 안내 화면, 페이지 이동(children = PlaybackStage)
+   ├─ Header.jsx         패널 전환(좁은 화면에선 숨김), 이미지일 때만 확대·맞춤·회전·돋보기, 도움말, 테마, 파일/URL 열기(file-input)
+   ├─ Icon.jsx           SVG 아이콘 33종(name → path, stroke=currentColor, aria-hidden)
+   ├─ IconButton.jsx     아이콘 전용 버튼(aria-label·title 필수, active → aria-pressed)
+   ├─ FilePanel.jsx      파일 목록(아이콘 썸네일), notice, 삭제 버튼(→ App.removeFile → ConfirmDialog)
+   ├─ Viewport.jsx       이미지 surface·주석(포커스 가능, role=button)·자르기 영역, 안내/빈 화면, 페이지 이동,
+   │                     toolbar 슬롯(= CanvasToolbar), children(= PlaybackStage)
+   ├─ CanvasToolbar.jsx  이미지 위 떠 있는 도구 막대: 이동·메모·스탬프·자르기(V/N/S/C), 실행 취소·다시 실행
    ├─ PlaybackStage.jsx  <video>/<audio>에 mediaProps 적용
-   ├─ ToolsPanel.jsx     패널 틀 + ImageTools(밝기·메모·스탬프·자르기·파일 정보) / PlaybackInfo(배속·재생 정보)
+   ├─ ToolsPanel.jsx     패널 틀(스크롤 영역 + footer) + ImageProperties(메모 내용·선택 항목·내 스탬프·밝기·파일 정보)
+   │                     / SaveBar(자르기 정보·자르기 저장·편집본 저장, 패널 하단 고정) / PlaybackInfo / EmptyTools
+   ├─ MobileBar.jsx      760px 이하 아래 막대: 파일 목록 · 속성(재생 정보) 시트 열기
+   ├─ Toast.jsx          알림 한 개(오류는 role=alert, 그 외 status), 선택 동작 버튼, 5초(오류 8초) 후 닫힘
+   ├─ ConfirmDialog.jsx  <dialog showModal> 확인 창, 처음 포커스는 취소, Esc = 취소
+   ├─ ShortcutHelp.jsx   단축키 표(shortcuts 배열) + 마우스·터치·끌어다 놓기 안내
+   ├─ DropOverlay.jsx    파일을 끌고 들어오면 보이는 놓기 영역
    ├─ Lens.jsx           돋보기
    └─ UrlDialog.jsx      URL 입력 창(입력값 상태 자체 보유, 닫히면 초기화)
 ```
 
-- 서버 호출과 오류 처리는 App에서 `run(()=>…)`으로 감싼 콜백을 컴포넌트에 넘깁니다. 컴포넌트에서 `fetch`를 직접 하지 않습니다.
+- 서버 호출과 오류 처리는 App에서 감싼 콜백을 컴포넌트에 넘깁니다. 컴포넌트에서 `fetch`를 직접 하지 않습니다. 실패 경로는 두 가지입니다.
+  - `run(()=>…)`: 파일 표시에 필요한 작업(선택·업로드·URL 열기). 실패하면 `setError` → 전체 화면 오류와 "다시 시도".
+  - `act(()=>…)`: 편집·저장·삭제처럼 파일은 그대로 보이는 작업. 실패하면 `notify('error', …)` 토스트만 띄우고 화면을 가리지 않습니다(U13). 성공 안내도 `notify('success', …)`.
+- 단축키는 `window` keydown/keyup → `keyHandler`/`keyUpHandler` ref(매 렌더 최신 상태를 봄)입니다. 입력란·열린 대화상자에서는 무시합니다. 키를 바꾸면 `ShortcutHelp.shortcuts`와 CanvasToolbar의 `aria-keyshortcuts`·title도 같이 고칩니다.
+  - 메모·스탬프가 선택되어 있으면 방향키는 페이지 대신 항목 이동(`nudgeSelected`, 회전·배율 반영)이고, 키를 뗀 뒤 400ms 디바운스로 한 번만 저장합니다. 저장은 `docRef.current.revision`(최신 revision)을 쓰므로 연속 저장에도 409가 나지 않습니다(`applyDocument`가 docRef와 상태를 함께 갱신).
+- 끌어다 놓기는 `.app` 루트의 `dropHandlers`(dragDepth 카운터로 자식 요소 진입·이탈 깜빡임 방지) → `openFiles(파일 배열)`입니다.
+- 터치: `touches` Map에 포인터를 모아 두 손가락이면 `drag.kind='pinch'`, 이동 도구에서 두 번 탭하면 `fit()`. `pointerUp`은 자르기·주석 드래그의 마지막 위치를 반영한 뒤 끝냅니다.
+- 좁은 화면(`(max-width:760px)`)에서는 시작 시 두 패널을 닫고, 세션에 저장된 패널 열림 상태를 복원하지 않습니다. 파일을 고르면 파일 목록 시트가 닫힙니다.
+- 스탬프 없이 스탬프 도구를 고르면 `askForStamp()`가 "스탬프 고르기" 동작이 있는 안내 토스트를 띄웁니다(U10).
 - JSX는 자동 런타임으로 변환되므로 새 컴포넌트에 `import React`가 필요 없습니다.
-- 이미지 위 포인터 처리는 `setPointerCapture`를 쓰므로 브라우저 확인 시 스크립트 이벤트가 아니라 실제 마우스 입력이 필요합니다.
+- 이미지 위 포인터 처리는 `setPointerCapture`(실패해도 무시하는 `capturePointer`)를 쓰므로 브라우저 확인 시 스크립트 이벤트가 아니라 실제 마우스 입력이 필요합니다.
+- 앱 내장 브라우저 패널이 숨겨져 있으면 `requestAnimationFrame`이 돌지 않아 첫 맞춤이 100%로 남고, 창에 포커스가 없으면 스크립트 `focus()`가 focus 이벤트를 내지 않습니다. 확인할 때 `0` 키로 맞추고, 포커스 동작은 실제 키 입력으로 봅니다.
 - 내려받기는 Blob → `URL.createObjectURL` → `<a download>`입니다. CSP `connect-src 'self'` 때문에 `blob:` 주소를 `fetch`로 다시 읽을 수 없습니다.
 
 ## 12. 작업할 때 쓰는 절차
