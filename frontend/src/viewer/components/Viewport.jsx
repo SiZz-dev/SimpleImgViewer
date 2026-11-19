@@ -14,14 +14,15 @@ export default function Viewport({viewportRef,tool,toolbar,onPointerDown,onPoint
     {imageReady&&<div className="surface" style={{width:info.displayWidth,height:info.displayHeight,transform:`translate(-50%,-50%) translate(${pan.x}px,${pan.y}px) scale(${zoom}) rotate(${angle}deg)`}}>
       <img className="main-image" alt={current.fileName} src={info.source.url} draggable={false} style={{filter:`brightness(${brightness}%)`}}/>
       <div className="annotation-overlay">{items.map(item=><div key={item.id} className={'annotation '+item.type+(selected===item.id?' selected':'')} style={areaStyle(item,info)} onPointerDown={event=>onAnnotationDown(event,item)}
-        tabIndex={0} role="button" aria-pressed={selected===item.id} aria-label={(item.type==='note'?'메모: '+item.text:'스탬프')+' — 방향키로 이동, Delete로 삭제'} onFocus={()=>onAnnotationFocus(item)}>
+        title={item.type==='note'?'두 번 눌러 글자 고치기':undefined}
+        tabIndex={0} role="button" aria-pressed={selected===item.id} aria-label={(item.type==='note'?'메모: '+item.text+' — Enter로 글자 고치기, ':'스탬프 — ')+'방향키로 이동, Delete로 삭제'} onFocus={()=>onAnnotationFocus(item)}>
         {item.type==='note'?<span>{item.text}</span>:<img alt="사용자 스탬프" src={'/api/v1/stamps/'+item.stampId+'/content'} draggable={false}/>}
       </div>)}{crop&&<div className="crop-selection" style={areaStyle(crop,info)}/>}</div>
     </div>}
     {children}
     {(loading||error||!current)&&<div className={'stage-message'+(error?' error':'')} role="status"><div className="message-icon">{loading?<Icon name="loader" className="spin"/>:<Icon name={error?'alert':'image'}/>}</div><h2>{loading?'파일을 준비하고 있습니다':error?'파일을 표시할 수 없습니다':'파일을 여기에 끌어다 놓으세요'}</h2><p>{error||(loading?'이미지·동영상·음성을 안전하게 열람합니다.':'또는 아래 버튼으로 고를 수 있습니다. 여러 파일을 한 번에 열 수 있습니다.')}</p>
       {error&&current&&<button className="secondary-button" onClick={onRetry}>다시 시도</button>}
-      {!loading&&!error&&!current&&<><button className="primary-button" disabled={!canOpen} onClick={onOpenFiles}><Icon name="plus"/>파일 열기</button><p className="formats">{formats}{maxUploadBytes?' · 파일당 최대 '+bytes(maxUploadBytes):''}</p></>}</div>}
+      {!loading&&!error&&!current&&<><button className="primary-button" disabled={!canOpen} onClick={onOpenFiles}><Icon name="plus"/>파일 열기</button><p className="formats">{formats}</p>{maxUploadBytes?<p className="formats">파일당 최대 {bytes(maxUploadBytes)}</p>:null}</>}</div>}
     {imageReady&&<nav className="page-navigation" aria-label="페이지"><button disabled={page<=1} title="이전 페이지" aria-label="이전 페이지" onClick={()=>onPage(page-1)}><Icon name="chevron-left"/></button><span>페이지</span><strong>{page}</strong><span>/ {info.pageCount||'—'}</span><button disabled={page>=(info.pageCount||1)} title="다음 페이지" aria-label="다음 페이지" onClick={()=>onPage(page+1)}><Icon name="chevron-right"/></button></nav>}
   </section>;
 }

@@ -29,9 +29,9 @@ export default function App(){
   const [narrow,setNarrow]=useState(isNarrow),[left,setLeft]=useState(()=>!isNarrow()),[right,setRight]=useState(()=>!isNarrow()&&innerWidth>1000),[zoom,setZoom]=useState(1),[angle,setAngle]=useState(0),[pan,setPan]=useState({x:0,y:0}),[brightness,setBrightness]=useState(100),[magnifier,setMagnifier]=useState(false),[lens,setLens]=useState(null);
   const [tool,setTool]=useState('move'),[document,setDocument]=useState(null),[selected,setSelected]=useState(null),[noteText,setNoteText]=useState('메모'),[stamps,setStamps]=useState([]),[stampId,setStampId]=useState(''),[crop,setCrop]=useState(null);
   const [urlOpen,setUrlOpen]=useState(false),[notice,setNotice]=useState(''),[toast,setToast]=useState(null),[confirmRequest,setConfirmRequest]=useState(null),[helpOpen,setHelpOpen]=useState(false);
-  const csrf=useRef(null),viewport=useRef(null),fileInput=useRef(null),stampInput=useRef(null),stampSelect=useRef(null),player=useRef(null),abort=useRef(null),drag=useRef(null),keyHandler=useRef(null),keyUpHandler=useRef(null);
+  const csrf=useRef(null),viewport=useRef(null),fileInput=useRef(null),stampInput=useRef(null),stampSelect=useRef(null),noteInput=useRef(null),player=useRef(null),abort=useRef(null),drag=useRef(null),keyHandler=useRef(null),keyUpHandler=useRef(null);
   // nudge: an annotation moved by arrow keys, saved once the key is released. touches/lastTap: pinch and double-tap (M2).
-  const nudge=useRef(null),nudgeTimer=useRef(null),touches=useRef(new Map()),lastTap=useRef(null),dragDepth=useRef(0);
+  const nudge=useRef(null),nudgeTimer=useRef(null),touches=useRef(new Map()),lastTap=useRef(null),dragDepth=useRef(0),editQueue=useRef(Promise.resolve()),lastNoteDown=useRef(null);
   // Latest annotation document, updated as soon as a save returns, so a save that starts before React
   // re-renders still sends the current revision (avoids false EDIT_CONFLICT on quick successive edits).
   const docRef=useRef(null);
@@ -58,7 +58,8 @@ export default function App(){
   const run=action=>Promise.resolve().then(action).catch(report);
   const notify=(type,text,action)=>setToast({type,text,action,id:Date.now()});
   const act=action=>Promise.resolve().then(action).catch(e=>{if(e.name!=='AbortError')notify('error',describe(e.message));});
-  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),toast.type==='error'?8000:5000);return()=>clearTimeout(timer);},[toast]);
+  // A toast with an action (undo, choose a stamp) stays longer so there is time to reach the button.
+  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),toast.action?10000:toast.type==='error'?8000:5000);return()=>clearTimeout(timer);},[toast]);
   useEffect(()=>{
     const down=event=>keyHandler.current?.(event),up=event=>keyUpHandler.current?.(event);
     addEventListener('keydown',down);addEventListener('keyup',up);return()=>{removeEventListener('keydown',down);removeEventListener('keyup',up);};
@@ -95,6 +96,17 @@ export default function App(){
     setZoom(Math.min(1,Math.max(.01,Math.min((rect.width-60)/(swapped?pageInfo.displayHeight:pageInfo.displayWidth),(rect.height-160)/(swapped?pageInfo.displayWidth:pageInfo.displayHeight)))));setPan({x:0,y:0});
   }
   function manualZoom(value){autoFit.current=false;setZoom(value);}
+  // Wheel zoom keeps the image point under the cursor in place (H-a). viewRef carries zoom/pan between
+  // wheel events that arrive before React re-renders. Pan is the image-center offset from the viewport
+  // center, so scaling about the cursor offset c gives pan' = c - (c - pan) * zoom'/zoom (rotation-independent).
+  const viewRef=useRef({zoom:1,pan:{x:0,y:0}});viewRef.current={zoom,pan};
+  function wheelZoom(event){
+    if(!imageReady||!features.zoom)return;
+    const delta=event.deltaY*(event.deltaMode===1?33:event.deltaMode===2?400:1);
+    const {zoom:from,pan:p}=viewRef.current,to=clamp(from*clamp(Math.exp(-delta*.002),.5,2),.01,16);if(to===from)return;
+    const rect=viewport.current.getBoundingClientRect(),cx=event.clientX-rect.left-rect.width/2,cy=event.clientY-rect.top-rect.height/2,k=to/from;
+    const next={x:cx-(cx-p.x)*k,y:cy-(cy-p.y)*k};viewRef.current={zoom:to,pan:next};autoFit.current=false;setZoom(to);setPan(next);
+  }
   async function select(record,nextPage=1,startTime=0,boot=bootstrap){
     if(!record)return;abort.current?.abort();const controller=new AbortController();abort.current=controller;
     currentRef.current=record;setCurrent(record);setPage(nextPage);setInfo(null);setPlayback(null);setDocument(null);setCrop(null);setSelected(null);setError('');setLoading(true);setAngle(0);setBrightness(100);setTool('move');
@@ -153,9 +165,13 @@ export default function App(){
   docRef.current=document;
   const binding=()=>({mediaVersion:info.mediaVersion,coordinateSpaceId:info.coordinateSpaceId,expectedRevision:docRef.current?.revision||0});
   const applyDocument=result=>{docRef.current=result;setDocument(result);};
-  async function saveItem(item,action='create'){
+  // Edits go out one at a time: each request reads docRef's revision only after the previous one has
+  // answered, so quick successive edits (double clicks, drag after drag, undo during a save) never send a
+  // stale expectedRevision and hit EDIT_CONFLICT.
+  const queueEdit=work=>{const next=editQueue.current.then(work);editQueue.current=next.catch(()=>{});return next;};
+  const saveItem=(item,action='create')=>queueEdit(async()=>{
     const result=await api(annotationsPath()+(action==='create'?'':'/'+item.id),{method:action==='create'?'POST':action==='delete'?'DELETE':'PUT',json:{...binding(),...item}});applyDocument(result);setSelected(action==='delete'?null:item.id||result.items.at(-1)?.id);
-  }
+  });
   // Capture can throw when the pointer is already gone (fast release, synthetic events); the gesture still works without it.
   const capturePointer=event=>{try{viewport.current.setPointerCapture(event.pointerId);}catch{}};
   // Touch (M2): a second finger turns the gesture into a pinch; a quick double tap in move mode fits the image.
@@ -174,7 +190,8 @@ export default function App(){
     else if(tool==='note'||tool==='stamp'){
       if(tool==='stamp'&&!stampId){askForStamp();setTool('move');return;}
       const stamp=stamps.find(s=>s.stampId===stampId),width=Math.min(200,info.coordinateWidth),height=Math.min(tool==='stamp'?width*(stamp?.height||1)/(stamp?.width||1):100,info.coordinateHeight);
-      act(()=>saveItem({type:tool,text:noteText,stampId:tool==='stamp'?stampId:null,x:clamp(p.x,0,info.coordinateWidth-width),y:clamp(p.y,0,info.coordinateHeight-height),width,height}));setTool('move');
+      // The clicked point becomes the item's center (H-c), kept inside the image.
+      act(()=>saveItem({type:tool,text:noteText,stampId:tool==='stamp'?stampId:null,x:clamp(p.x-width/2,0,info.coordinateWidth-width),y:clamp(p.y-height/2,0,info.coordinateHeight-height),width,height}));setTool('move');
     }else{drag.current={kind:'pan',client:{x:event.clientX,y:event.clientY},pan};setSelected(null);}
   }
   function pointerMove(event){
@@ -192,7 +209,9 @@ export default function App(){
     if(d.kind==='pan'){autoFit.current=false;setPan({x:d.pan.x+event.clientX-d.client.x,y:d.pan.y+event.clientY-d.client.y});}
     if(d.kind==='crop')setCrop({x:Math.min(p.x,d.start.x),y:Math.min(p.y,d.start.y),width:Math.abs(p.x-d.start.x),height:Math.abs(p.y-d.start.y)});
     if(d.kind==='annotation'){
-      const item={...d.item,x:clamp(d.item.x+p.x-d.start.x,0,info.coordinateWidth-d.item.width),y:clamp(d.item.y+p.y-d.start.y,0,info.coordinateHeight-d.item.height)};d.changed=item;
+      const item={...d.item,x:clamp(d.item.x+p.x-d.start.x,0,info.coordinateWidth-d.item.width),y:clamp(d.item.y+p.y-d.start.y,0,info.coordinateHeight-d.item.height)};
+      // A click without movement only selects; it must not save (and bump the revision).
+      d.changed=item.x===d.item.x&&item.y===d.item.y?null:item;
       setDocument(doc=>({...doc,items:doc.items.map(i=>i.id===item.id?item:i)}));
     }
   }
@@ -205,15 +224,24 @@ export default function App(){
     if(event?.type==='pointerup'&&(d?.kind==='crop'||d?.kind==='annotation'))pointerMove(event);
     drag.current=null;if(d?.kind==='annotation'&&d.changed)act(()=>saveItem(d.changed,'replace'));if(d?.kind==='crop')setTool('move');
   }
-  function annotationDown(event,item){event.stopPropagation();if(!imageReady)return;setSelected(item.id);if(item.type==='note')setNoteText(item.text||'');capturePointer(event);drag.current={kind:'annotation',item,start:point(event)};}
+  function annotationDown(event,item){
+    event.stopPropagation();if(!imageReady)return;
+    // Pointer capture sends the browser's dblclick to the viewport, so a second press on the same note
+    // within 400 ms is detected here (mouse and touch alike) and opens the text for editing (H-b).
+    const now=Date.now(),last=lastNoteDown.current;lastNoteDown.current=item.type==='note'?{id:item.id,time:now}:null;
+    if(item.type==='note'&&last?.id===item.id&&now-last.time<400){lastNoteDown.current=null;drag.current=null;editNote(item);return;}
+    setSelected(item.id);if(item.type==='note')setNoteText(item.text||'');capturePointer(event);drag.current={kind:'annotation',item,start:point(event)};
+  }
   async function uploadStamp(event){const file=event.target.files?.[0];event.target.value='';if(!file)return;const form=new FormData();form.append('file',file);const stamp=await api('/api/v1/stamps',{method:'POST',body:form});setStamps(await api('/api/v1/stamps'));setStampId(stamp.stampId);setTool('stamp');}
-  async function historyChange(direction){applyDocument(await api(annotationsPath()+'/history/'+direction,{method:'POST',json:binding()}));setSelected(null);}
+  const historyChange=direction=>queueEdit(async()=>{applyDocument(await api(annotationsPath()+'/history/'+direction,{method:'POST',json:binding()}));setSelected(null);});
   async function download(edited){
-    const region=crop&&crop.width>=1&&crop.height>=1?crop:{x:0,y:0,width:info.coordinateWidth,height:info.coordinateHeight};
+    const cropped=!!(crop&&crop.width>=1&&crop.height>=1),region=cropped?crop:{x:0,y:0,width:info.coordinateWidth,height:info.coordinateHeight};
     const blob=await api('/api/v1/media/'+current.mediaId+'/pages/'+page+'/'+(edited?'export':'crop'),{method:'POST',json:{...binding(),...region,brightness:features.brightness?brightness:100,rotation:features.rotation?angle:0,includeAnnotations:true},binary:true});
-    const name='simpleimgviewer-'+(edited?'edited':'crop')+'.png';
+    // H-e: name the download after the original so several saves stay distinguishable.
+    const base=current.fileName.replace(/\.[^.]*$/,'').replace(/[\\/:*?"<>|\u0000-\u001f]+/g,'_').trim().slice(0,80)||'image';
+    const name=base+(edited?'-편집본':'-원본')+(cropped?'-부분':'')+'.png';
     const url=URL.createObjectURL(blob),a=globalThis.document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    notify('success',(edited?'편집본을 저장했습니다':'잘라낸 영역을 저장했습니다')+' · '+name);
+    notify('success',(edited?'편집본을 저장했습니다':'원본에서 잘라 저장했습니다(메모·스탬프 제외)')+' · '+name);
   }
   const visibleItems=(document?.items||[]).filter(item=>features[item.type==='stamp'?'stamps':'annotations']);
   const selectedItem=visibleItems.find(i=>i.id===selected);
@@ -227,6 +255,15 @@ export default function App(){
   // A1: keyboard editing of notes/stamps. Focus selects; arrows move in screen direction (rotation and zoom
   // are converted to original pixels like point()); the move is saved once when the key is released.
   function annotationFocus(item){setSelected(item.id);if(item.type==='note')setNoteText(item.text||'');}
+  // H-b: double-click (or Enter on a focused note) jumps to the note text in the properties panel.
+  function editNote(item){
+    if(item.type!=='note'||!features.annotations)return;setSelected(item.id);setNoteText(item.text||'');setRight(true);if(narrow)setLeft(false);
+    requestAnimationFrame(()=>{noteInput.current?.focus();noteInput.current?.select();});
+  }
+  // H-f: deleting says what went and offers the undo right there.
+  function removeItem(item){
+    return act(async()=>{await saveItem(item,'delete');notify('info',(item.type==='note'?'메모':'스탬프')+'를 지웠습니다.',{label:'실행 취소',run:()=>act(()=>historyChange('undo'))});});
+  }
   function nudgeSelected(dx,dy){
     const item=nudge.current||visibleItems.find(i=>i.id===selected);if(!item)return;
     const r=-angle*Math.PI/180,sx=info.coordinateWidth/(info.displayWidth*zoom),sy=info.coordinateHeight/(info.displayHeight*zoom);
@@ -266,7 +303,8 @@ export default function App(){
     // With a note/stamp selected, arrows move it (Shift: larger steps) and Delete removes it; otherwise arrows page.
     if(selectedItem&&key.startsWith('Arrow')){event.preventDefault();const step=event.shiftKey?50:10;
       const [dx,dy]={ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowUp:[0,-step],ArrowDown:[0,step]}[key];nudgeSelected(dx,dy);return;}
-    if(selectedItem&&(key==='Delete'||key==='Backspace')){event.preventDefault();const item=selectedItem;act(()=>saveItem(item,'delete'));return;}
+    if(selectedItem&&(key==='Delete'||key==='Backspace')){event.preventDefault();removeItem(selectedItem);return;}
+    if(selectedItem?.type==='note'&&key==='Enter'&&event.target.classList?.contains('annotation')){event.preventDefault();editNote(selectedItem);return;}
     const zoomBy=factor=>{if(features.zoom){event.preventDefault();manualZoom(z=>clamp(z*factor,.01,16));}};
     switch(key){
       case '+':case '=':zoomBy(1.25);break;
@@ -287,7 +325,7 @@ export default function App(){
       {left&&<FilePanel files={files} current={current} notice={notice} loading={loading} onSelect={file=>{if(narrow)setLeft(false);run(()=>select(file));}} onRemove={removeFile}/>}
       <Viewport viewportRef={viewport} tool={tool} onPointerDown={pointerDown}
         toolbar={<CanvasToolbar tool={tool} onTool={chooseTool} features={features} history={document?.history} onHistory={direction=>act(()=>historyChange(direction))}/>} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={()=>setLens(null)}
-        onWheel={event=>{if(imageReady&&features.zoom)manualZoom(z=>clamp(z*(event.deltaY<0?1.1:1/1.1),.01,16));}}
+        onWheel={wheelZoom}
         current={current} info={info} imageReady={imageReady} pan={pan} zoom={zoom} angle={angle} brightness={brightness} items={visibleItems} selected={selected} crop={crop} onAnnotationDown={annotationDown}
         onAnnotationFocus={annotationFocus} canOpen={!!bootstrap&&!loading} onOpenFiles={()=>fileInput.current?.click()} maxUploadBytes={bootstrap?.limits?.maxUploadBytes}
         loading={loading} error={error} onRetry={()=>run(()=>select(current,page))} page={page} onPage={next=>run(()=>select(current,next))}>
@@ -297,8 +335,8 @@ export default function App(){
         footer={isImage&&<SaveBar imageReady={imageReady} features={features} crop={crop} onClearCrop={()=>setCrop(null)} onDownload={edited=>act(()=>download(edited))}/>}>
         {!current?<EmptyTools/>:playback?<PlaybackInfo playback={playback} player={player} speedAllowed={speedAllowed} seekAllowed={seekAllowed}/>:isImage?
         <ImageProperties ready={!!bootstrap} imageReady={imageReady} features={features} current={current} info={info} brightness={brightness} onBrightness={setBrightness}
-          noteText={noteText} onNoteText={setNoteText} selectedItem={selectedItem} revision={document?.revision} itemCount={visibleItems.length}
-          onSaveItem={(item,action)=>act(()=>saveItem(item,action))}
+          noteText={noteText} onNoteText={setNoteText} noteInput={noteInput} selectedItem={selectedItem} revision={document?.revision} itemCount={visibleItems.length}
+          onSaveItem={(item,action)=>action==='delete'?removeItem(item):act(()=>saveItem(item,action))}
           stamps={stamps} stampId={stampId} onStampId={setStampId} stampInput={stampInput} stampSelect={stampSelect} onStampChosen={event=>act(()=>uploadStamp(event))}/>:null}</ToolsPanel>}
     </main>
     {narrow&&<MobileBar left={left} right={right} current={current} onFiles={toggleLeft} onTools={toggleRight}/>}

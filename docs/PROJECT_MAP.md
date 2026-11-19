@@ -340,10 +340,12 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | `frontend/src/viewer/App.jsx`(상태·흐름) | 이를 props로 받는 `components/*` 전체 | `node scripts/build-web.mjs` + 브라우저 시나리오 |
 | `frontend/src/viewer/components/*` | 해당 화면 영역만(props는 App에서 전달) | 빌드 + 해당 영역 브라우저 확인 |
 | `App.jsx` 단축키(`keyHandler`) | `ShortcutHelp.shortcuts`, `CanvasToolbar` title·`aria-keyshortcuts`, 주석 aria-label 안내 문구 | 도움말 표와 실제 키 동작 대조, 입력란에서 무시되는지 |
-| `App.jsx` 저장 경로(`saveItem`·`historyChange`·`docRef`) | 드래그·방향키 이동·크기 수정·실행 취소가 모두 같은 revision 사용 | 연속 방향키 이동 후 revision 1회 증가·409 없음, 실행 취소/다시 실행 |
+| `App.jsx` 저장 경로(`saveItem`·`historyChange`·`queueEdit`·`docRef`) | 드래그·방향키 이동·크기 수정·실행 취소가 모두 같은 revision 사용 | 연속 방향키 이동 후 revision 1회 증가·409 없음, 메모 더블클릭 시 저장 요청 0건, 연달아 끌기, 실행 취소/다시 실행 |
 | `viewer.css` 토큰(`--color-*`, `--font-size-*`, `--space-*`) | 모든 화면 요소, 다크·라이트 양쪽 | 다크·라이트에서 12px 미만 글자 0, 대비 4.5 미만 0, 24px 미만 대상 0(UX_DESIGN_TOKENS.md 측정 방법) |
 | `viewer.css` 760px 미디어 쿼리 / `narrowQuery` | MobileBar, 패널 시트, 헤더 축약, 토스트 위치, 세션 패널 복원 | 375×812에서 넘침 없음, 시트 열고 닫기, 저장 버튼·토스트 보임 |
 | 새 화면 동작의 실패 처리 | `run`(전체 화면 오류) vs `act`(토스트) 선택 | 실패시켜서 이미지가 가려지지 않는지(편집 동작은 `act`) |
+| `annotationDown`·`pointerDown` 배치·`wheelZoom` | 메모·스탬프 놓기, 끌기, 두 번 눌러 편집, 휠 확대(회전·패닝 상태 포함) | 실제 마우스로 놓기 위치(클릭점 = 가운데), 두 번 누름 → 입력란 포커스·저장 0건, 회전 후 휠 확대 시 커서 아래 지점 유지 |
+| `download` 파일 이름·SaveBar 문구 | `scripts/test-node-viewer.mjs`(버튼 이름 `편집본 저장`), 사용성 진행안 T6·T7 | 원본/편집본 저장 파일 이름과 알림 문구 |
 | `frontend/src/viewer/api.js` | 모든 서버 호출(CSRF 헤더·오류 코드 변환) | 빌드 + 브라우저 전체 시나리오 |
 
 ---
@@ -376,7 +378,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | 설치 | install-node-runtime.ps1, install-native-modules.ps1, install-note-font.mjs, create-url-sample.* |
 | 네이티브 빌드 | build-process-job.ps1, build-lpac-image/media.ps1, build-*-lpac*.ps1, build-libvips-*.ps1, build-storage-watch.ps1, prepare-libvips-headers.ps1 |
 | 스테이징 | stage-sharp-lpac.mjs, stage-ffmpeg-lpac.mjs |
-| 수동 검증·측정 | test-node-viewer.mjs(브라우저), test-lpac-*, test-*-lpac.mjs, test-runtime-*, test-managed-runtime-services.mjs, test-proxy-config*, test-storage-watch.mjs, test-native-*.ps1 |
+| 수동 검증·측정 | usability-test-server.mjs(사용성 테스트용 임시 저장소 서버·표본 생성, [UX_USABILITY_TEST.md](UX_USABILITY_TEST.md)), test-node-viewer.mjs(브라우저), test-lpac-*, test-*-lpac.mjs, test-runtime-*, test-managed-runtime-services.mjs, test-proxy-config*, test-storage-watch.mjs, test-native-*.ps1 |
 
 ---
 
@@ -385,7 +387,7 @@ isolation.root      (기본 .runtime/node/lpac)      LPAC 작업 풀 image/, med
 | 구분 | 문서 |
 | --- | --- |
 | **현재 기준(먼저 읽기)** | 이 문서, [REMAINING_WORK.md](REMAINING_WORK.md), [ARCHITECTURE.md](ARCHITECTURE.md), [NODE_REACT_MIGRATION.md](NODE_REACT_MIGRATION.md), README.md, AGENTS.md |
-| 화면 UX 리뉴얼 | [UX_HEURISTIC_REVIEW.md](UX_HEURISTIC_REVIEW.md) — 휴리스틱 점검 결과, 항목 ID(U·A·M), 리뉴얼 단계별 배정 · [UX_DESIGN_TOKENS.md](UX_DESIGN_TOKENS.md) — 색·글자·간격·모서리·그림자 토큰 체계안과 대비 검사 · [UX_LAYOUT_OPTIONS.md](UX_LAYOUT_OPTIONS.md) — 레이아웃 시안 A·B·C 비교(시안: `docs/prototypes/viewer-layouts.html`) |
+| 화면 UX 리뉴얼 | [UX_HEURISTIC_REVIEW.md](UX_HEURISTIC_REVIEW.md) — 휴리스틱 점검 결과, 항목 ID(U·A·M), 리뉴얼 단계별 배정 · [UX_DESIGN_TOKENS.md](UX_DESIGN_TOKENS.md) — 색·글자·간격·모서리·그림자 토큰 체계안과 대비 검사 · [UX_LAYOUT_OPTIONS.md](UX_LAYOUT_OPTIONS.md) — 레이아웃 시안 A·B·C 비교(시안: `docs/prototypes/viewer-layouts.html`) · [UX_USABILITY_TEST.md](UX_USABILITY_TEST.md) — 사용성 과업 테스트 진행안·기록지·AI 파일럿 결과 |
 | 현재 Node 구현 상세 | LPAC_*.md, MANAGED_RUNTIME_EXECUTION.md, RUNTIME_VERSION_LIFECYCLE.md, RUNTIME_VERIFIER_*.md, RUNTIME_VERIFICATION_*.md, RUNTIME_RESPONSIVENESS.md, NODE_LPAC_INTEGRATION.md, FFMPEG_LPAC_INTEGRATION.md, LEGACY_SOURCE_REMOVAL.md, INSTALLATION.md |
 | Java 시절 기록(현재 실행 규칙 아님) | DEVELOPMENT_PLAN.md, API_CONTRACT.md, TILE_*.md, IMG2TILE_*.md, LIBVIPS_*.md, PREVIEW_*.md, ORIGINAL_*.md, PUBLICATION_*.md, LINKED_*.md, BACKUP_*.md, AUDIT_LOGGING.md 등 — 요구사항·설계 의도 참고용 |
 
@@ -428,11 +430,19 @@ viewer/
   - `run(()=>…)`: 파일 표시에 필요한 작업(선택·업로드·URL 열기). 실패하면 `setError` → 전체 화면 오류와 "다시 시도".
   - `act(()=>…)`: 편집·저장·삭제처럼 파일은 그대로 보이는 작업. 실패하면 `notify('error', …)` 토스트만 띄우고 화면을 가리지 않습니다(U13). 성공 안내도 `notify('success', …)`.
 - 단축키는 `window` keydown/keyup → `keyHandler`/`keyUpHandler` ref(매 렌더 최신 상태를 봄)입니다. 입력란·열린 대화상자에서는 무시합니다. 키를 바꾸면 `ShortcutHelp.shortcuts`와 CanvasToolbar의 `aria-keyshortcuts`·title도 같이 고칩니다.
-  - 메모·스탬프가 선택되어 있으면 방향키는 페이지 대신 항목 이동(`nudgeSelected`, 회전·배율 반영)이고, 키를 뗀 뒤 400ms 디바운스로 한 번만 저장합니다. 저장은 `docRef.current.revision`(최신 revision)을 쓰므로 연속 저장에도 409가 나지 않습니다(`applyDocument`가 docRef와 상태를 함께 갱신).
+  - 메모·스탬프가 선택되어 있으면 방향키는 페이지 대신 항목 이동(`nudgeSelected`, 회전·배율 반영)이고, 키를 뗀 뒤 400ms 디바운스로 한 번만 저장합니다.
+  - 편집 저장(`saveItem`)과 실행 취소·다시 실행(`historyChange`)은 `queueEdit`로 한 줄로 보냅니다. 각 요청은 앞 요청의 응답을 `applyDocument`(docRef와 상태를 함께 갱신)로 반영한 뒤 `docRef.current.revision`을 읽으므로, 빠른 연속 편집에도 409 EDIT_CONFLICT가 나지 않습니다.
+  - 주석을 누르기만 하고 움직이지 않으면 선택만 하고 저장하지 않습니다(`d.changed`가 null).
 - 끌어다 놓기는 `.app` 루트의 `dropHandlers`(dragDepth 카운터로 자식 요소 진입·이탈 깜빡임 방지) → `openFiles(파일 배열)`입니다.
 - 터치: `touches` Map에 포인터를 모아 두 손가락이면 `drag.kind='pinch'`, 이동 도구에서 두 번 탭하면 `fit()`. `pointerUp`은 자르기·주석 드래그의 마지막 위치를 반영한 뒤 끝냅니다.
 - 좁은 화면(`(max-width:760px)`)에서는 시작 시 두 패널을 닫고, 세션에 저장된 패널 열림 상태를 복원하지 않습니다. 파일을 고르면 파일 목록 시트가 닫힙니다.
-- 스탬프 없이 스탬프 도구를 고르면 `askForStamp()`가 "스탬프 고르기" 동작이 있는 안내 토스트를 띄웁니다(U10).
+- 스탬프 없이 스탬프 도구를 고르면 `askForStamp()`가 "스탬프 고르기" 동작이 있는 안내 토스트를 띄웁니다(U10). 동작 버튼이 있는 토스트는 10초, 오류는 8초, 나머지는 5초 뒤 닫힙니다.
+- 사용성 파일럿 반영(UX_USABILITY_TEST.md 7.4)
+  - `wheelZoom`: 커서 아래 지점을 고정한 채 확대·축소합니다. 헤더 버튼·`+`/`−` 키는 화면 가운데 기준(`manualZoom`)입니다. `viewRef`는 다시 그리기 전에 연달아 오는 휠 이벤트가 최신 zoom/pan을 쓰게 합니다.
+  - `pointerDown`에서 메모·스탬프는 클릭한 점이 가운데가 되도록 놓습니다.
+  - `annotationDown`: 같은 메모를 400ms 안에 두 번 누르면 `editNote`가 실행됩니다(속성 패널을 열고 `noteInput`에 포커스). 포인터 캡처 때문에 브라우저 dblclick은 화면 영역으로 가므로 `onDoubleClick`을 쓰지 않습니다. 포커스된 메모에서 Enter도 같은 동작입니다.
+  - `removeItem`: Delete 키와 패널 삭제 버튼 모두 이 함수를 거칩니다. "…를 지웠습니다 · 실행 취소" 토스트를 띄우고, 실행 취소는 `historyChange('undo')`입니다.
+  - `download`: 파일 이름은 `<원본 이름>-원본|편집본[-부분].png`입니다. "원본 잘라 저장"(crop API, 주석 없음)과 "편집본 저장"(export API, 주석 합성)은 같은 자르기 영역을 씁니다.
 - JSX는 자동 런타임으로 변환되므로 새 컴포넌트에 `import React`가 필요 없습니다.
 - 이미지 위 포인터 처리는 `setPointerCapture`(실패해도 무시하는 `capturePointer`)를 쓰므로 브라우저 확인 시 스크립트 이벤트가 아니라 실제 마우스 입력이 필요합니다.
 - 앱 내장 브라우저 패널이 숨겨져 있으면 `requestAnimationFrame`이 돌지 않아 첫 맞춤이 100%로 남고, 창에 포커스가 없으면 스크립트 `focus()`가 focus 이벤트를 내지 않습니다. 확인할 때 `0` 키로 맞추고, 포커스 동작은 실제 키 입력으로 봅니다.
